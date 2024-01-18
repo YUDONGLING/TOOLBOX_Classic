@@ -2,7 +2,7 @@ def FileNameSafer(Cfg = None):
     import re
 
     if __name__ == '__main__':
-        from Merge import MergeCfg
+        from  Merge import MergeCfg
     else:
         from .Merge import MergeCfg
 
@@ -23,7 +23,7 @@ def FileNameSafer(Cfg = None):
         _ = Config['Name']
         for Rule in Config['ForceReplace']:
             if len(Rule) == 2: _ = _.replace(Rule[0], Rule[1])
-        Response['Name']   = re.sub(r'\s+', ' ', re.sub(r'[\\/:*?\"<>|\n]', ' ', _)).lstrip()[:Config['MaxLength']].rstrip()
+        Response['Name'] = re.sub(r'\s+', ' ', re.sub(r'[\\/:*?\"<>|\n]', ' ', _)).lstrip()[:Config['MaxLength']].rstrip()
     except Exception as errorMsg:
         Response['ErrorCode'] = 50000
         Response['ErrorMsg']  = f'Fail to safety given name, {str(errorMsg).lower().rstrip(".")}'
@@ -32,7 +32,7 @@ def FileNameSafer(Cfg = None):
 
 def StorageUnitProcesser(Cfg = None):
     if __name__ == '__main__':
-        from Merge import MergeCfg
+        from  Merge import MergeCfg
     else:
         from .Merge import MergeCfg
 
