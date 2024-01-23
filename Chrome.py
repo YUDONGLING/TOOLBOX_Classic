@@ -8,9 +8,9 @@ def CreateBrowse(Cfg = None):
 
     Config = {
         'Private'      : True,
-        'DriverPath'   : r'H:\GITHUB\Repository\ChromeDriver\chromedriver.exe',
-        'UserDataPath' : r'H:\GITHUB\Repository\ChromeDriver\UserData',
-        'AntiRobotPath': r'H:\GITHUB\Repository\ChromeStealth.min.js'
+        'DriverPath'   : r'H:\GITHUB\TOOLBOX\ChromeDriver\chromedriver.exe',
+        'UserDataPath' : r'H:\GITHUB\TOOLBOX\ChromeDriver\UserData',
+        'AntiRobotPath': r'H:\GITHUB\TOOLBOX\ChromeStealth.min.js'
     }
     Config = MergeCfg(Config, Cfg)
 
@@ -46,7 +46,7 @@ def CreateBrowse(Cfg = None):
 
         Response['Driver'] = selenium.webdriver.Chrome(service = service, options = option)
 
-        # with open(r'H:\GITHUB\Repository\ChromeStealth.min.js') as JS:
+        # with open(r'H:\GITHUB\TOOLBOX\ChromeStealth.min.js') as JS:
         #     C = JS.read()
         #     chromeDriver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
         #         'source': C

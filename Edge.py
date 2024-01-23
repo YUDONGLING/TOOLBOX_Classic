@@ -8,9 +8,9 @@ def CreateBrowse(Cfg = None):
 
     Config = {
         'Private'      : True,
-        'DriverPath'   : r'H:\GITHUB\Repository\EdgeDriver\msedgedriver.exe',
-        'UserDataPath' : r'H:\GITHUB\Repository\EdgeDriver\UserData',
-        'AntiRobotPath': r'H:\GITHUB\Repository\EdgeStealth.min.js'
+        'DriverPath'   : r'H:\GITHUB\TOOLBOX\EdgeDriver\msedgedriver.exe',
+        'UserDataPath' : r'H:\GITHUB\TOOLBOX\EdgeDriver\UserData',
+        'AntiRobotPath': r'H:\GITHUB\TOOLBOX\EdgeStealth.min.js'
     }
     Config = MergeCfg(Config, Cfg)
 
@@ -46,7 +46,7 @@ def CreateBrowse(Cfg = None):
 
         Response['Driver'] = selenium.webdriver.Edge(service = service, options = option)
 
-        # with open(r'H:\GITHUB\Repository\EdgeStealth.min.js') as JS:
+        # with open(r'H:\GITHUB\TOOLBOX\EdgeStealth.min.js') as JS:
         #     C = JS.read()
         #     edgeDriver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
         #         'source': C
