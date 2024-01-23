@@ -148,7 +148,7 @@ def GetMediaInfo(Cfg = None):
         else:
             from .Download import HeadFile
 
-        Info = HeadFile({
+        HeadUrlResult = HeadFile({
             'Url'     : Config['Url'],
             'Header'  : Config['Header'],
             'Params'  : Config['Params'],
@@ -156,18 +156,28 @@ def GetMediaInfo(Cfg = None):
             'Timeout' : Config['Timeout'],
             'Redirect': Config['Redirect']
         })
-        Response['Folder'] = Info['FinalUrl']
-        Response['File']   = Info['FinalUrl']
-        Response['Path']   = Info['FinalUrl']
-        Response['Size']   = Info['ContentLength']
+
+        if HeadUrlResult['ErrorCode'] != 0:
+            Response['ErrorCode'] = 50002
+            Response['ErrorMsg']  = HeadUrlResult['ErrorMsg']
+            return Response
+        elif 200 <= HeadUrlResult['HttpCode'] < 400 and HeadUrlResult['ContentLength'] > 1024:
+            Response['Folder'] = HeadUrlResult['FinalUrl']
+            Response['File']   = HeadUrlResult['FinalUrl']
+            Response['Path']   = HeadUrlResult['FinalUrl']
+            Response['Size']   = HeadUrlResult['ContentLength']
+        else:
+            Response['ErrorCode'] = 50003
+            Response['ErrorMsg']  = f'Fail to get online media info, http_code is {HeadUrlResult["HttpCode"]}, content_length is {HeadUrlResult["ContentLength"]}'
+            return Response
 
         try:
-            _ = cv2.VideoCapture(Info['FinalUrl'])
+            _ = cv2.VideoCapture(HeadUrlResult['FinalUrl'])
             Response['Height'] = int(_.get(cv2.CAP_PROP_FRAME_HEIGHT))
             Response['Width']  = int(_.get(cv2.CAP_PROP_FRAME_WIDTH))
             _.release()
         except Exception as errorMsg:
-            Response['ErrorCode'] = 50002
+            Response['ErrorCode'] = 50004
             Response['ErrorMsg']  = f'Fail to get online media info, {str(errorMsg).lower().rstrip(".")}'
             return Response
 
