@@ -232,7 +232,6 @@ def GetFileViaDownloadKit(Cfg = None):
                 if Timer >= 10:
                     if Tsk.rate == None or Tsk.rate == 0.0:
                         Tsk.cancel()
-                        print(f'\r{" " * os.get_terminal_size().columns}', end = '\r') if Config['CleanDownloading'] else print()
                         raise Exception('connecting timeout')
                 Timer += 1
                 time.sleep(1)
@@ -240,7 +239,6 @@ def GetFileViaDownloadKit(Cfg = None):
             while True:
                 print(f'\r{Config["NoticePrefix"]}{Tsk.rate} %{Config["NoticeSuffix"]}', end = '     ')
                 if Tsk.is_done:
-                    print(f'\r{" " * os.get_terminal_size().columns}', end = '\r') if Config['CleanDownloading'] else print()
                     break
                 else:
                     time.sleep(0.025)
@@ -267,7 +265,10 @@ def GetFileViaDownloadKit(Cfg = None):
 
         if not Config['Time'] is None:
             os.utime(Path, (Config['Time'], Config['Time']))
+
+        print(f'\r{" " * (os.get_terminal_size().columns - 1)}\r', end = '') if Config['CleanDownloading'] else print()
     except Exception as errorMsg:
+        print(f'\r{" " * (os.get_terminal_size().columns - 1)}\r', end = '') if Config['CleanDownloading'] else print()
         Response['ErrorCode'] = 50002
         Response['ErrorMsg']  = f'Fail to download file from given url, {str(errorMsg).lower().rstrip(".")}'
         return Response
