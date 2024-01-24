@@ -4,7 +4,7 @@ def __AliyunClient__(AK: str, SK: str, EndPoint: str):
     return OpenApiClient(OpenApiModels.Config(access_key_id = AK, access_key_secret = SK, endpoint = EndPoint))
 
 
-def __AliyunEndPoint__(RegionId: str):
+def __AliyunEndPoint__(RegionId: str, ProductCode = 'Dns'):
     if RegionId in ['cn-beijing', 'cn-zhangjiakou', 'cn-huhehaote', 'cn-hangzhou', 'cn-shanghai', 'cn-shenzhen', 'cn-chengdu', 'cn-hongkong', 'ap-northeast-1', 'ap-southeast-1', 'ap-southeast-2', 'ap-southeast-3', 'ap-southeast-5', 'us-east-1', 'us-west-1', 'eu-west-1', 'eu-central-1', 'ap-south-1', 'me-east-1', 'cn-hangzhou-finance', 'cn-shanghai-finance-1', 'cn-shenzhen-finance-1']:
         return f'alidns.{RegionId}.aliyuncs.com'
     else:
