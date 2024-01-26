@@ -1,6 +1,8 @@
 class Context(object):
 
-    def __init__(self, object):
+    def __init__(self, object, start_response):
+        start_response('200 OK', [('Content-Type', 'application/json')])
+
         self.Sts = {
             'AK'    : object['ALIBABA_CLOUD_ACCESS_KEY_ID'],
             'SK'    : object['ALIBABA_CLOUD_ACCESS_KEY_SECRET'],
@@ -35,6 +37,11 @@ class Context(object):
         })
 
 
+    def __call__(self, object):
+        import json
+        return [json.dumps(object, indent = 4, ensure_ascii = False)]
+
+
     def GetIp(self, object):
         for _ in [
             'HTTP_X_FORWARDED_FOR',
@@ -60,7 +67,7 @@ class Context(object):
 
     def GetPam(self, object):
         Param = {}
-        for _ in object.get('QUERY_STRING', '').split('&').split('='):
+        for _ in [_.split('=') for _ in object.get('QUERY_STRING', '').split('&')]:
             if len(_) > 1: Param[_[0]] = '='.join(_[1:])
         return Param
 
@@ -89,7 +96,7 @@ class Context(object):
         def DecodeForm(_):
             Form = {}
             try:
-                for _ in _.split('&').split('='):
+                for _ in [_.split('=') for _ in _.split('&')]:
                     if len(_) > 1: Form[_[0]] = '='.join(_[1:])
                 return Form
             except Exception as errorMsg:
