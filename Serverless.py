@@ -259,25 +259,26 @@ class Wsgi(object):
                     return '未知 未知'
 
 
-    def CallWebhook(self, AccessToken):
+    def CallWebhook(self, AccessToken, ShowRequestDetail = False, ShowResponseDetail = False, IncludeOptions = False):
+        if self.Request['Method'] == 'OPTIONS' and not IncludeOptions:
+            return None
+
         if __name__ == '__main__':
             from  Webhook import DingTalk
         else:
             from .Webhook import DingTalk
 
-        Markdown = [
-            {
-                'Title': '用户请求信息',
-                'Color': 'BLUE',
-                'Text' : [
-                    f'请求接口: {self.Server["Function"]}/{self.Server["Qualifier"]}',
-                    f'请求方法: {self.Request["Method"]}',
-                    f'用户来源: {self.Request["Ip"]}',
-                    f'用户地区: {self.GetLocation()}',
-                    f'用户设备: {self.Request["User-Agent"]}'
-                ]
-            }
-        ]
+        Markdown = [{
+            'Title': '用户请求信息',
+            'Color': 'BLUE',
+            'Text' : [
+                f'请求接口: {self.Server["Function"]}/{self.Server["Qualifier"]}',
+                f'请求方法: {self.Request["Method"]}',
+                f'用户来源: {self.Request["Ip"]}',
+                f'用户地区: {self.GetLocation()}',
+                f'用户设备: {self.Request["User-Agent"]}'
+            ]
+        }]
 
         Markdown.append({
             'Title': '接口响应信息',
@@ -288,6 +289,27 @@ class Wsgi(object):
                 f'错误信息: {self.Response["ErrorMsg"] or "None"}',
             ]
         })
+
+        if ShowRequestDetail:
+            import json
+            Markdown.append({
+                'Title': '详细请求日志',
+                'Color': 'BLUE',
+                'Text' : [
+                    f'请求参数: {json.dumps(self.Request["Param"], ensure_ascii = False)}',
+                    f'请求负载: {json.dumps(self.Request["Data"], ensure_ascii = False)}'
+                ]
+            })
+
+        if ShowResponseDetail:
+            import json
+            Markdown.append({
+                'Title': '详细响应日志',
+                'Color': 'BLUE',
+                'Text' : [
+                    f'响应负载: {json.dumps(self.Response["Data"], ensure_ascii = False)}'
+                ]
+            })
 
         DingTalk({
             'Org'  : '【Serverless】WSGI 请求监控',
