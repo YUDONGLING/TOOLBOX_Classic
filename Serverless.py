@@ -1,6 +1,7 @@
 class Wsgi(object):
 
     def __init__(self, environ, start_response):
+        self.Response      = {}
         self.Environ       = environ
         self.StartResponse = start_response
 
@@ -12,11 +13,12 @@ class Wsgi(object):
         }
 
         self.Server = {
-            'Owner'   : self.Environ['FC_ACCOUNT_ID'],
-            'Region'  : self.Environ['FC_REGION'],
-            'Service' : self.Environ['FC_SERVICE_NAME'],
-            'Function': self.Environ['FC_FUNCTION_NAME'],
-            'Instance': self.Environ['FC_INSTANCE_ID']
+            'Owner'    : self.Environ['FC_ACCOUNT_ID'],
+            'Region'   : self.Environ['FC_REGION'],
+            'Service'  : self.Environ['FC_SERVICE_NAME'],
+            'Function' : self.Environ['FC_FUNCTION_NAME'],
+            'Qualifier': self.Environ['FC_QUALIFIER'],
+            'Instance' : self.Environ['FC_INSTANCE_ID']
         }
 
         self.Request = {}
@@ -106,6 +108,7 @@ class Wsgi(object):
             '511': '511 Network Authentication Required'
         }
 
+        self.Response = Body
         self.StartResponse(_.get(Code, '200 OK'), [('Content-Type', 'application/json')] + (Header or []))
         return [json.dumps(Body, ensure_ascii = False)]
 
@@ -178,3 +181,118 @@ class Wsgi(object):
             _ = DecodeJson(Data)
             if _: return _
             else: return DecodeForm(Data)
+
+
+    def GetLocation(self):
+        import requests
+
+        if self.Server['Region'] in ['cn-zhangjiakou', 'cn-shenzhen', 'cn-shanghai', 'cn-qingdao', 'cn-huhehaote', 'cn-hangzhou-finance', 'cn-hangzhou', 'cn-chengdu', 'cn-beijing']:
+            Url = 'https://searchplugin.csdn.net/api/v1/ip/get'
+            Pam = {
+                'ip': self.Request['Ip']
+            }
+            try:
+                return requests.get(Url, params = Pam, timeout = 5).json()['data']['address'].replace('   ', ' ').replace('  ', ' ').strip()
+            except Exception as errorMsg:
+                return '未知 未知'
+        else:
+            try:
+                Url = 'https://pro.ip-api.com/json/%s' % (self.Request['Ip'])
+                Hed = {
+                    'Accept'         : '*/*',
+                    'Accept-Language': 'zh-CN,zh;q=0.9',
+                    'Cache-Control'  : 'no-cache',
+                    'Connection'     : 'keep-alive',
+                    'DNT'            : '1',
+                    'Origin'         : 'https://members.ip-api.com',
+                    'Pragma'         : 'no-cache',
+                    'Referer'        : 'https://members.ip-api.com/',
+                    'User-Agent'     : self.Request['User-Agent']
+                }
+                Pam = {
+                    'fields': 'country,regionName,city,isp,as',
+                    'lang'  : 'zh-CN',
+                    'key'   : 'ipapiq9SFY1Ic4'
+                }
+                Rsp = requests.get(Url, headers = Hed, params = Pam, timeout = 5).json()
+
+                Country = Rsp['country']
+                Region  = Rsp['regionName'].lstrip('省').lstrip('市').lstrip('自治区').lstrip('特别行政区') if Country == '中国' else Rsp['regionName']
+                City    = Rsp['city'].lstrip('市').lstrip('自治州').lstrip('地区').lstrip('盟').lstrip('县').lstrip('区').lstrip('旗') if Country == '中国' else Rsp['city']
+
+                if Country == '中国':
+                    Isp = Rsp['isp']; As = Rsp['isp'].upper() + Rsp['as'].upper()
+                    if   'TELECOM' in As or 'CHINANET'  in As: Isp = '电信'
+                    elif 'UNICOM'  in As or 'CHINA169'  in As: Isp = '联通'
+                    elif 'MOBILE'  in As or 'CMNET'     in As: Isp = '移动'
+                    elif 'TIETONG' in As or 'RAILWAT'   in As: Isp = '铁通'
+                    elif 'CERNET'  in As or 'EDUCATION' in As: Isp = '教育网'
+                else:
+                    Isp = Rsp['isp']
+
+                return ('%s %s %s %s' % (Country, Region, City, Isp)).replace('   ', ' ').replace('  ', ' ').strip()
+            except Exception as errorMsg:
+                try:
+                    Url = 'http://ip-api.com/json/' % (self.Request['Ip'])
+                    Pam = {
+                        'fields': 'country,regionName,city,isp,as',
+                        'lang'  : 'zh-CN'
+                    }
+                    Rsp = requests.get(Url, params = Pam, timeout = 5).json()
+
+                    Country = Rsp['country']
+                    Region  = Rsp['regionName'].lstrip('省').lstrip('市').lstrip('自治区').lstrip('特别行政区') if Country == '中国' else Rsp['regionName']
+                    City    = Rsp['city'].lstrip('市').lstrip('自治州').lstrip('地区').lstrip('盟').lstrip('县').lstrip('区').lstrip('旗') if Country == '中国' else Rsp['city']
+
+                    if Country == '中国':
+                        Isp = Rsp['isp']; As = Rsp['isp'].upper() + Rsp['as'].upper()
+                        if   'TELECOM' in As or 'CHINANET'  in As: Isp = '电信'
+                        elif 'UNICOM'  in As or 'CHINA169'  in As: Isp = '联通'
+                        elif 'MOBILE'  in As or 'CMNET'     in As: Isp = '移动'
+                        elif 'TIETONG' in As or 'RAILWAT'   in As: Isp = '铁通'
+                        elif 'CERNET'  in As or 'EDUCATION' in As: Isp = '教育网'
+                    else:
+                        Isp = Rsp['isp']
+
+                    return ('%s %s %s %s' % (Country, Region, City, Isp)).replace('   ', ' ').replace('  ', ' ').strip()
+                except Exception as errorMsg:
+                    return '未知 未知'
+
+
+    def CallWebhook(self, AccessToken):
+        if __name__ == '__main__':
+            from  Webhook import DingTalk
+        else:
+            from .Webhook import DingTalk
+
+        Markdown = [
+            {
+                'Title': '用户请求信息',
+                'Color': 'BLUE',
+                'Text' : [
+                    f'请求接口: {self.Server["Function"]}/{self.Server["Qualifier"]}',
+                    f'请求方法: {self.Request["Method"]}',
+                    f'用户来源: {self.Request["Ip"]}',
+                    f'用户地区: {self.GetLocation()}',
+                    f'用户设备: {self.Request["User-Agent"]}'
+                ]
+            }
+        ]
+
+        Markdown.append({
+            'Title': '接口响应信息',
+            'Color': 'RED' if self.Response['ErrorCode'] else 'GREEN',
+            'Text' : [
+                f'集群编号: {self.Server["Service"]}_{self.Server["Instance"]}',
+                f'错误代码: {self.Response["ErrorCode"] or "None"}',
+                f'错误信息: {self.Response["ErrorMsg"] or "None"}',
+            ]
+        })
+
+        DingTalk({
+            'Org'  : '【Serverless】WSGI 请求监控',
+            'Data' : Markdown,
+            'Token': AccessToken
+        })
+
+        return None
