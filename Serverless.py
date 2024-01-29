@@ -263,6 +263,8 @@ class Wsgi(object):
         if self.Request['Method'] == 'OPTIONS' and not IncludeOptions:
             return None
 
+        self.Request['Location'] = self.GetLocation()
+
         if __name__ == '__main__':
             from  Webhook import DingTalk
         else:
@@ -274,7 +276,7 @@ class Wsgi(object):
             'Text' : [
                 f'请求接口: {self.Server["Function"]}/{self.Server["Qualifier"]}',
                 f'请求方法: {self.Request["Method"]}',
-                f'用户来源: {self.Request["Ip"]}',
+                f'用户来源: {self.Request["Location"]}',
                 f'用户地区: {self.GetLocation()}',
                 f'用户设备: {self.Request["User-Agent"]}'
             ]
@@ -296,8 +298,8 @@ class Wsgi(object):
                 'Title': '详细请求日志',
                 'Color': 'BLUE',
                 'Text' : [
-                    f'请求参数: {json.dumps(self.Request["Param"], ensure_ascii = False)}',
-                    f'请求负载: {json.dumps(self.Request["Data"], ensure_ascii = False)}'
+                    f'请求参数: {json.dumps(self.Request["Param"], ensure_ascii = False).replace("{}", "None")}',
+                    f'请求负载: {json.dumps(self.Request["Data"], ensure_ascii = False).replace("{}", "None")}'
                 ]
             })
 
@@ -307,7 +309,7 @@ class Wsgi(object):
                 'Title': '详细响应日志',
                 'Color': 'BLUE',
                 'Text' : [
-                    f'响应负载: {json.dumps(self.Response["Data"], ensure_ascii = False)}'
+                    f'响应负载: {json.dumps(self.Response["Data"], ensure_ascii = False).replace("{}", "None")}'
                 ]
             })
 
