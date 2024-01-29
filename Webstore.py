@@ -1,7 +1,10 @@
-def __AliyunClient__(AK: str, SK: str, EndPoint: str):
+def __AliyunClient__(AK: str, SK: str, EndPoint: str, STSToken: str = None):
     from alibabacloud_tea_openapi import models as OpenApiModels
     from alibabacloud_tea_openapi.client import Client as OpenApiClient
-    return OpenApiClient(OpenApiModels.Config(access_key_id = AK, access_key_secret = SK, endpoint = EndPoint))
+    if STSToken:
+        return OpenApiClient(OpenApiModels.Config(access_key_id = AK, access_key_secret = SK, endpoint = EndPoint, security_token = STSToken))
+    else:
+        return OpenApiClient(OpenApiModels.Config(access_key_id = AK, access_key_secret = SK, endpoint = EndPoint))
 
 
 def __AliyunEndPoint__(RegionId: str, ProductCode = 'Dns'):
@@ -46,6 +49,7 @@ def Read(Cfg = None):
         'Zone'    : 'webstore.net',      # 域名
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
+        'STSToken': '',                  # 临时性凭证 (可留空)
         'RegionId': 'cn-hangzhou'        # 服务接入点 (可留空)
     }
     Config = MergeCfg(Config, Cfg)
@@ -69,7 +73,7 @@ def Read(Cfg = None):
         Response['Key']  = RR
         Response['Zone'] = Domain
 
-        Client  = __AliyunClient__(Config['AK'], Config['SK'], __AliyunEndPoint__(Config['RegionId']))
+        Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
         Params  = OpenApiModels.Params(
             action        = 'DescribeDomainRecords',
             version       = '2015-01-09',
@@ -138,6 +142,7 @@ def Write(Cfg = None):
         'Zone'    : 'webstore.net',      # 域名
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
+        'STSToken': '',                  # 临时性凭证 (可留空)
         'RegionId': 'cn-hangzhou'        # 服务接入点 (可留空)
     }
     Config = MergeCfg(Config, Cfg)
@@ -196,7 +201,7 @@ def Write(Cfg = None):
 
     # 写入数据
     try:
-        Client  = __AliyunClient__(Config['AK'], Config['SK'], __AliyunEndPoint__(Config['RegionId']))
+        Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
         Params  = OpenApiModels.Params(
             action        = 'OperateBatchDomain',
             version       = '2015-01-09',
@@ -231,7 +236,7 @@ def Write(Cfg = None):
     Wait = 0
     while Wait < 100:
         try:
-            Client  = __AliyunClient__(Config['AK'], Config['SK'], __AliyunEndPoint__(Config['RegionId']))
+            Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
             Params  = OpenApiModels.Params(
                 action        = 'DescribeBatchResultCount',
                 version       = '2015-01-09',
@@ -267,7 +272,7 @@ def Write(Cfg = None):
             time.sleep(0.25); Wait += 1
 
     try:
-        Client  = __AliyunClient__(Config['AK'], Config['SK'], __AliyunEndPoint__(Config['RegionId']))
+        Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
         Params  = OpenApiModels.Params(
             action        = 'DescribeBatchResultDetail',
             version       = '2015-01-09',
