@@ -11,6 +11,24 @@ def __AliyunEndPoint__(RegionId: str, ProductCode = 'Dns'):
         return f'dns.aliyuncs.com'
 
 
+class Base36(object):
+
+    def __init__(self, _):
+        self.Value = _
+
+    def encode(self):
+        AlphaBet = '0123456789abcdefghijklmnopqrstuvwxyz'
+        CharList = []
+
+        while self.Value > 0:
+            self.Value, _ = divmod(self.Value, 36); CharList.append(AlphaBet[_])
+
+        return ''.join(reversed(CharList))
+
+    def decode(self):
+        return int(self.Value, 36)
+
+
 def Read(Cfg = None):
     import json
 
@@ -138,12 +156,12 @@ def Write(Cfg = None):
     try:
         if type(Config['Data']) in [dict, list, tuple, str, int, float, bool, type(None)]:
             Data = {
-                'Time': int(time.time() * 1000), # MS TIMESTAMP
+                'Ts'  : Base36(int(time.time() * 1000)).encode(), # MS TIMESTAMP, BASE36
                 'Data': Config['Data']
             }
         else:
             Data = {
-                'Time': int(time.time() * 1000), # MS TIMESTAMP
+                'Ts'  : Base36(int(time.time() * 1000)).encode(), # MS TIMESTAMP, BASE36
                 'Data': str(Config['Data'])
             }
     except Exception as errorMsg:
