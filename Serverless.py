@@ -276,8 +276,8 @@ class Wsgi(object):
             'Text' : [
                 f'请求接口: {self.Server["Function"]}/{self.Server["Qualifier"]}',
                 f'请求方法: {self.Request["Method"]}',
-                f'用户来源: {self.Request["Location"]}',
-                f'用户地区: {self.GetLocation()}',
+                f'用户来源: {self.Request["Ip"]}',
+                f'用户地区: {self.Request["Location"]}',
                 f'用户设备: {self.Request["User-Agent"]}'
             ]
         }]
