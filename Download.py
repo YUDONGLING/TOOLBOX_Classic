@@ -178,6 +178,7 @@ def GetFileViaDownloadKit(Cfg = None):
             },
         'Params'          : {},
         'Cookie'          : None,
+        'BlockSize'       : 1024 * 1024 * 10, # In Bytes
         'Timeout'         : 10,
         'Redirect'        : True,
     }
@@ -214,15 +215,16 @@ def GetFileViaDownloadKit(Cfg = None):
         File = Config['File']
         Path = os.path.join(Folder, File)
 
-        Kit = DownloadKit()
-        Tsk = Kit.add(Url, Folder, File,
-                      file_exists     = 'overwrite',
-                      split           = True,
-                      headers         = Config['Header'],
-                      params          = Config['Params'],
-                      cookies         = Config['Cookie'],
-                      timeout         = Config['Timeout'],
-                      allow_redirects = Config['Redirect'])
+        Kit            = DownloadKit()
+        Kit.block_size = Config['BlockSize']
+        Tsk            = Kit.add(Url, Folder, File,
+                                 file_exists     = 'overwrite',
+                                 split           = True,
+                                 headers         = Config['Header'],
+                                 params          = Config['Params'],
+                                 cookies         = Config['Cookie'],
+                                 timeout         = Config['Timeout'],
+                                 allow_redirects = Config['Redirect'])
 
         Timer = 0
         if Config['ShowDownloading']:
