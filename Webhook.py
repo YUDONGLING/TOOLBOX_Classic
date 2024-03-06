@@ -41,17 +41,7 @@ def DingTalk(Cfg = None):
             if Color.startswith('#') and len(Color) == 7:
                 pass
             else:
-                match Color:
-                    case 'PURPLE':
-                        Color = '#6A65FF'
-                    case 'RED':
-                        Color = '#FF6666'
-                    case 'GREEN':
-                        Color = '#92D050'
-                    case 'BLUE':
-                        Color = '#76CCFF'
-                    case _:
-                        Color = '#76CCFF'
+                Color = {'PURPLE': '#6A65FF', 'RED': '#FF6666', 'GREEN': '#92D050', 'BLUE': '#76CCFF'}.get(Color, '#76CCFF')
             MdText += ' --- \n\n <font color=' + Color + '>**' + _.get('Title', '') + '**</font> \n\n '
         # TEXT
         MdText += ' \n\n '.join(_.get('Text', [])) + ' \n\n '
