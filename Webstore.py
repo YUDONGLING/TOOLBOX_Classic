@@ -14,12 +14,8 @@ def __AliyunEndPoint__(RegionId: str, ProductCode = 'Dcdn'):
         return f'dcdn.aliyuncs.com'
 
 
-def Read(Cfg = None):
+def Get(Cfg = None):
     import json
-
-    from alibabacloud_tea_util import models as UtilModels
-    from alibabacloud_tea_openapi import models as OpenApiModels
-    from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
 
     if __name__ == '__main__':
         from  Merge import MergeCfg
@@ -27,8 +23,9 @@ def Read(Cfg = None):
         from .Merge import MergeCfg
 
     Config = {
-        'Key'     : 'sample',            # 记录
-        'Zone'    : 'webstore.net',      # 域名
+        'Web'     : True,                # True: 从 Web Dcdn 请求数据, False: 从 API 请求数据
+        'Key'     : 'sample',            # 记录の键
+        'Space'   : 'sample-storage',    # 记录の域
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
         'STSToken': '',                  # 临时性凭证 (可留空)
@@ -40,78 +37,80 @@ def Read(Cfg = None):
         'ErrorCode': 0,
         'ErrorMsg' : '',
         'Key'      : '',
-        'Zone'     : '',
-        'Data'     : None,
-        'TaskId'   : [],
-        'BlockId'  : [],
-        'Count'    : -1
+        'Value'    : ''
     }
 
-    # # 读取数据
-    # try:
-    #     RR     = Config['Key'].strip('.').lower()
-    #     Domain = Config['Zone'].strip('.').lower()
+    if Config['Web']:
+        import requests
 
-    #     Response['Key']  = RR
-    #     Response['Zone'] = Domain
+        try:
+            Url = f'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
+            Hed = {
+                'Content-Type': 'application/json',
+                'Host'        : 'storage.edge-routine.yudongling.net'
+            }
+            Dat = {
+                'action'   : 'get',
+                'namespace': Config['Space'],
+                'key'      : Config['Key']
+            }
+            Rsp = requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
 
-    #     Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
-    #     Params  = OpenApiModels.Params(
-    #         action        = 'DescribeDomainRecords',
-    #         version       = '2015-01-09',
-    #         protocol      = 'HTTPS',
-    #         method        = 'POST',
-    #         auth_type     = 'AK',
-    #         style         = 'RPC',
-    #         pathname      = '/',
-    #         req_body_type = 'json',
-    #         body_type     = 'json'
-    #     )
-    #     Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-    #         'DomainName' : f'{Domain}',
-    #         'RRKeyWord'  : f'{RR}',
-    #         'TypeKeyWord': f'txt',
-    #         'PageSize'   : 500
-    #     }))
-    #     Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50001
-    #     Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
-    #     return Response
+            if Rsp['ErrorCode'] != 0:
+                Response['ErrorCode'] = Rsp['ErrorCode']
+                Response['ErrorMsg']  = Rsp['ErrorMsg']
+            else:
+                Response['Key']   = Rsp['Data']['Key']
+                Response['Value'] = json.loads(Rsp['Data']['Value'])
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50000
+            Response['ErrorMsg']  = f'Fail to request data via web, {str(errorMsg).lower().rstrip(".")}'
 
-    # try:
-    #     # 复制代码运行请自行打印 API 的返回值
-    #     # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
-    #     Body = Client.call_api(Params, Request, Runtime)['body']['DomainRecords']['Record']
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50002
-    #     Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
-    #     return Response
+        return Response
 
-    # # 合并数据
-    # try:
-    #     Response['Count'] = len(Body)
-    #     Response['BlockId'] = [_['RecordId'] for _ in Body]
+    if not Config['Web']:
+        from alibabacloud_tea_util import models as UtilModels
+        from alibabacloud_tea_openapi import models as OpenApiModels
+        from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
 
-    #     Data_String = ''.join([_['Value'] for _ in sorted(Body, key = lambda x: x['RR'].split('.')[0].zfill(5))]).replace(r'\"', r'"').replace(r"\\u", r"\u")
-    #     Data = json.loads(Data_String)
+        try:
+            Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+            Params  = OpenApiModels.Params(
+                action        = 'GetDcdnKv',
+                version       = '2018-01-15',
+                protocol      = 'HTTPS',
+                method        = 'GET',
+                auth_type     = 'AK',
+                style         = 'RPC',
+                pathname      = '/',
+                req_body_type = 'json',
+                body_type     = 'json'
+            )
+            Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
+                'Namespace': Config['Space'],
+                'Key'      : Config['Key']
+            }))
+            Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50001
+            Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
+            return Response
 
-    #     Response['Data'] = Data['Data']
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50003
-    #     Response['ErrorMsg']  = f'Fail to process response of openapi model, {str(errorMsg).lower().rstrip(".")}'
-    #     return Response
+        try:
+            # 复制代码运行请自行打印 API 的返回值
+            # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
+            Response['Value'] = json.loads(Client.call_api(Params, Request, Runtime)['body']['Value'])
+            Response['Key']   = Config['Key']
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50002
+            Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
+            return Response
 
-    return Response
+        return Response
 
 
-def Write(Cfg = None):
-    import time
+def Put(Cfg = None):
     import json
-
-    from alibabacloud_tea_util import models as UtilModels
-    from alibabacloud_tea_openapi import models as OpenApiModels
-    from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
 
     if __name__ == '__main__':
         from  Merge import MergeCfg
@@ -119,9 +118,10 @@ def Write(Cfg = None):
         from .Merge import MergeCfg
 
     Config = {
-        'Data'    : None,                # 数据
-        'Key'     : 'sample',            # 记录
-        'Zone'    : 'webstore.net',      # 域名
+        'Web'     : True,                # True: 从 Web Dcdn 请求数据, False: 从 API 请求数据
+        'Key'     : 'sample',            # 记录の键
+        'Value'   : 'sample-value',      # 记录の值
+        'Space'   : 'sample-storage',    # 记录の域
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
         'STSToken': '',                  # 临时性凭证 (可留空)
@@ -131,159 +131,159 @@ def Write(Cfg = None):
 
     Response = {
         'ErrorCode': 0,
-        'ErrorMsg' : '',
-        'Key'      : '',
-        'Zone'     : '',
-        'TaskId'   : [],
-        'BlockId'  : [],
-        'Count'    : -1
+        'ErrorMsg' : ''
     }
 
-    # # 构造数据
-    # try:
-    #     if type(Config['Data']) in [dict, list, tuple, str, int, float, bool, type(None)]:
-    #         Data = {
-    #             'Ts'  : Base36(int(time.time() * 1000)).encode(), # MS TIMESTAMP, BASE36
-    #             'Data': Config['Data']
-    #         }
-    #     else:
-    #         Data = {
-    #             'Ts'  : Base36(int(time.time() * 1000)).encode(), # MS TIMESTAMP, BASE36
-    #             'Data': str(Config['Data'])
-    #         }
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50001
-    #     Response['ErrorMsg']  = f'Fail to process given data, {str(errorMsg).lower().rstrip(".")}'
-    #     return Response
+    if Config['Web']:
+        import requests
 
-    # # 划分数据, 构造请求体
-    # try:
-    #     Data_ToString = json.dumps(Data, ensure_ascii = True).replace(r'"', r"\"").replace(r"\u", r"\\u")
+        try:
+            Url = f'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
+            Hed = {
+                'Content-Type': 'application/json',
+                'Host'        : 'storage.edge-routine.yudongling.net'
+            }
+            Dat = {
+                'action'   : 'put',
+                'namespace': Config['Space'],
+                'key'      : Config['Key'],
+                'value'    : Config['Value']
+            }
+            Rsp = requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
 
-    #     Record = []
-    #     RR     = Config['Key'].strip('.').lower()
-    #     Domain = Config['Zone'].strip('.').lower()
+            if Rsp['ErrorCode'] != 0:
+                Response['ErrorCode'] = Rsp['ErrorCode']
+                Response['ErrorMsg']  = Rsp['ErrorMsg']
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50000
+            Response['ErrorMsg']  = f'Fail to request data via web, {str(errorMsg).lower().rstrip(".")}'
 
-    #     Response['Key']  = RR
-    #     Response['Zone'] = Domain
+        return Response
 
-    #     for _ in range(0, len(Data_ToString) // 510 + 1):
-    #         Record.append({
-    #             'Type'  : f'txt',
-    #             'Domain': f'{Domain}',
-    #             'Value' : f'{Data_ToString[_ * 510 : _ * 510+510]}',
-    #             'Rr'    : f'{_ + 1}.{RR}'
-    #         })
+    if not Config['Web']:
+        from alibabacloud_tea_util import models as UtilModels
+        from alibabacloud_tea_openapi import models as OpenApiModels
+        from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
 
-    #     Response['Count'] = _ + 1
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50002
-    #     Response['ErrorMsg']  = f'Fail to process given data, {str(errorMsg).lower().rstrip(".")}'
-    #     return Response
+        try:
+            Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+            Params  = OpenApiModels.Params(
+                action        = 'PutDcdnKv',
+                version       = '2018-01-15',
+                protocol      = 'HTTPS',
+                method        = 'POST',
+                auth_type     = 'AK',
+                style         = 'RPC',
+                pathname      = '/',
+                req_body_type = 'formData',
+                body_type     = 'json'
+            )
+            Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
+                'Namespace': Config['Space'],
+                'Key'      : Config['Key']
+            }), body = {'Value': Config['Value']})
+            Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50001
+            Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
+            return Response
 
-    # # 写入数据
-    # try:
-    #     Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
-    #     Params  = OpenApiModels.Params(
-    #         action        = 'OperateBatchDomain',
-    #         version       = '2015-01-09',
-    #         protocol      = 'HTTPS',
-    #         method        = 'POST',
-    #         auth_type     = 'AK',
-    #         style         = 'RPC',
-    #         pathname      = '/',
-    #         req_body_type = 'json',
-    #         body_type     = 'json'
-    #     )
-    #     Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-    #         'Type'           : 'RR_ADD',
-    #         'DomainRecordInfo': Record
-    #     }))
-    #     Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50003
-    #     Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
-    #     return Response
+        try:
+            # 复制代码运行请自行打印 API 的返回值
+            # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
+            Client.call_api(Params, Request, Runtime)
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50002
+            Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
+            return Response
 
-    # try:
-    #     # 复制代码运行请自行打印 API 的返回值
-    #     # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
-    #     TaskId           = Client.call_api(Params, Request, Runtime)['body']['TaskId']
-    #     Response['TaskId'].append(str(TaskId))
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50004
-    #     Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
-    #     return Response
+        return Response
 
-    # Wait = 0
-    # while Wait < 100:
-    #     try:
-    #         Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
-    #         Params  = OpenApiModels.Params(
-    #             action        = 'DescribeBatchResultCount',
-    #             version       = '2015-01-09',
-    #             protocol      = 'HTTPS',
-    #             method        = 'POST',
-    #             auth_type     = 'AK',
-    #             style         = 'RPC',
-    #             pathname      = '/',
-    #             req_body_type = 'json',
-    #             body_type     = 'json'
-    #         )
-    #         Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-    #             'TaskId': TaskId
-    #         }))
-    #         Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
-    #     except Exception as errorMsg:
-    #         Response['ErrorCode'] = 50005
-    #         Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
-    #         # return Response
 
-    #     try:
-    #         # 复制代码运行请自行打印 API 的返回值
-    #         # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
-    #         Status = Client.call_api(Params, Request, Runtime)['body']['Status']
-    #     except Exception as errorMsg:
-    #         Response['ErrorCode'] = 50006
-    #         Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
-    #         # return Response
-        
-    #     if Status >= 1:
-    #         break
-    #     else:
-    #         time.sleep(0.25); Wait += 1
+def Delete(Cfg = None):
+    import json
 
-    # try:
-    #     Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
-    #     Params  = OpenApiModels.Params(
-    #         action        = 'DescribeBatchResultDetail',
-    #         version       = '2015-01-09',
-    #         protocol      = 'HTTPS',
-    #         method        = 'POST',
-    #         auth_type     = 'AK',
-    #         style         = 'RPC',
-    #         pathname      = '/',
-    #         req_body_type = 'json',
-    #         body_type     = 'json'
-    #     )
-    #     Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-    #         'TaskId'  : TaskId,
-    #         'PageSize': 1000
-    #     }))
-    #     Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50007
-    #     Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
-    #     return Response
+    if __name__ == '__main__':
+        from  Merge import MergeCfg
+    else:
+        from .Merge import MergeCfg
 
-    # try:
-    #     # 复制代码运行请自行打印 API 的返回值
-    #     # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
-    #     Body                = Client.call_api(Params, Request, Runtime)['body']['BatchResultDetails']['BatchResultDetail']
-    #     Response['BlockId'] = [_['RecordId'] for _ in Body]
-    # except Exception as errorMsg:
-    #     Response['ErrorCode'] = 50008
-    #     Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
-    #     return Response
+    Config = {
+        'Web'     : True,                # True: 从 Web Dcdn 请求数据, False: 从 API 请求数据
+        'Key'     : 'sample',            # 记录の键
+        'Space'   : 'sample-storage',    # 记录の域
+        'AK'      : 'AccessKey Id',
+        'SK'      : 'AccessKey Secret',
+        'STSToken': '',                  # 临时性凭证 (可留空)
+        'RegionId': 'cn-hangzhou'        # 服务接入点 (可留空)
+    }
+    Config = MergeCfg(Config, Cfg)
 
-    return Response
+    Response = {
+        'ErrorCode': 0,
+        'ErrorMsg' : ''
+    }
+
+    if Config['Web']:
+        import requests
+
+        try:
+            Url = f'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
+            Hed = {
+                'Content-Type': 'application/json',
+                'Host'        : 'storage.edge-routine.yudongling.net'
+            }
+            Dat = {
+                'action'   : 'delete',
+                'namespace': Config['Space'],
+                'key'      : Config['Key']
+            }
+            Rsp = requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
+
+            if Rsp['ErrorCode'] != 0:
+                Response['ErrorCode'] = Rsp['ErrorCode']
+                Response['ErrorMsg']  = Rsp['ErrorMsg']
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50000
+            Response['ErrorMsg']  = f'Fail to request data via web, {str(errorMsg).lower().rstrip(".")}'
+
+        return Response
+
+    if not Config['Web']:
+        from alibabacloud_tea_util import models as UtilModels
+        from alibabacloud_tea_openapi import models as OpenApiModels
+        from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
+
+        try:
+            Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+            Params  = OpenApiModels.Params(
+                action        = 'DeleteDcdnKv',
+                version       = '2018-01-15',
+                protocol      = 'HTTPS',
+                method        = 'POST',
+                auth_type     = 'AK',
+                style         = 'RPC',
+                pathname      = '/',
+                req_body_type = 'json',
+                body_type     = 'json'
+            )
+            Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
+                'Namespace': Config['Space'],
+                'Key'      : Config['Key']
+            }))
+            Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50001
+            Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
+            return Response
+
+        try:
+            # 复制代码运行请自行打印 API 的返回值
+            # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
+            Client.call_api(Params, Request, Runtime)
+        except Exception as errorMsg:
+            Response['ErrorCode'] = 50002
+            Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
+            return Response
+
+        return Response
