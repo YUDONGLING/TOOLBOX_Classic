@@ -23,8 +23,8 @@ def Get(Cfg = None):
         from .Merge import MergeCfg
 
     Config = {
-        'Web'     : True,                # True: 从 Web Dcdn 请求数据, False: 从 API 请求数据
-        'Key'     : 'sample',            # 记录の键
+        'Web'     : True,
+        'Key'     : None,                # 记录の键, '' OR ['', '', ...]
         'Space'   : 'sample-storage',    # 记录の域
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
@@ -36,8 +36,7 @@ def Get(Cfg = None):
     Response = {
         'ErrorCode': 0,
         'ErrorMsg' : '',
-        'Key'      : '',
-        'Value'    : ''
+        'Data'     : {}
     }
 
     if Config['Web']:
@@ -52,19 +51,20 @@ def Get(Cfg = None):
             Dat = {
                 'action'   : 'get',
                 'namespace': Config['Space'],
-                'key'      : Config['Key']
+                'key'      : Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]
             }
             Rsp = requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
 
-            if Rsp['ErrorCode'] != 0:
-                Response['ErrorCode'] = Rsp['ErrorCode']
-                Response['ErrorMsg']  = Rsp['ErrorMsg']
-            else:
-                Response['Key']   = Rsp['Data']['Key']
-                Response['Value'] = json.loads(Rsp['Data']['Value'])
+            for Key, Value in Rsp['Data'].items():
+                try:
+                    Rsp['Data'][Key]['value'] = json.loads(Value['value'])
+                except:
+                    pass
+
+            return Rsp
         except Exception as errorMsg:
-            Response['ErrorCode'] = 50000
-            Response['ErrorMsg']  = f'Fail to request data via web, {str(errorMsg).lower().rstrip(".")}'
+            Response['ErrorCode'] = -1
+            Response['ErrorMsg']  = ''
 
         return Response
 
@@ -86,25 +86,35 @@ def Get(Cfg = None):
                 req_body_type = 'json',
                 body_type     = 'json'
             )
-            Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-                'Namespace': Config['Space'],
-                'Key'      : Config['Key']
-            }))
             Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
         except Exception as errorMsg:
-            Response['ErrorCode'] = 50001
-            Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
+            Response['ErrorCode'] = -1
+            Response['ErrorMsg']  = ''
             return Response
 
-        try:
-            # 复制代码运行请自行打印 API 的返回值
-            # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
-            Response['Value'] = json.loads(Client.call_api(Params, Request, Runtime)['body']['Value'])
-            Response['Key']   = Config['Key']
-        except Exception as errorMsg:
-            Response['ErrorCode'] = 50002
-            Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
-            return Response
+        for Key in Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]:
+            Key = str(Key)
+
+            if len(Key) > 512:
+                Response['Data'][Key] = {'code': 400, 'value': ''}
+                continue
+
+            try:
+                Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
+                    'Namespace': Config['Space'],
+                    'Key'      : Key
+                }))
+                Result  = Client.call_api(Params, Request, Runtime)
+
+                try:
+                    Response['Data'][Key] = {'code': 0, 'value': json.loads(Result['body']['Value'])}
+                except:
+                    Response['Data'][Key] = {'code': 0, 'value': Result['body']['Value']}
+            except Exception as errorMsg:
+                if errorMsg.data.get('Code') in ['InvalidKey.NotFound']:
+                    Response['Data'][Key] = {'code': 404, 'value': ''}
+                else:
+                    Response['Data'][Key] = {'code': 500, 'value': ''}
 
         return Response
 
@@ -118,9 +128,8 @@ def Put(Cfg = None):
         from .Merge import MergeCfg
 
     Config = {
-        'Web'     : True,                # True: 从 Web Dcdn 请求数据, False: 从 API 请求数据
-        'Key'     : 'sample',            # 记录の键
-        'Value'   : 'sample-value',      # 记录の值
+        'Web'     : True,
+        'KeyValue': [],                  # 记录の键值对
         'Space'   : 'sample-storage',    # 记录の域
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
@@ -131,7 +140,8 @@ def Put(Cfg = None):
 
     Response = {
         'ErrorCode': 0,
-        'ErrorMsg' : ''
+        'ErrorMsg' : '',
+        'Data'     : {}
     }
 
     if Config['Web']:
@@ -146,17 +156,13 @@ def Put(Cfg = None):
             Dat = {
                 'action'   : 'put',
                 'namespace': Config['Space'],
-                'key'      : Config['Key'],
-                'value'    : Config['Value']
+                'key'      : [_['Key'] for _ in Config['KeyValue']],
+                'value'    : [_['Value'] for _ in Config['KeyValue']]
             }
-            Rsp = requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
-
-            if Rsp['ErrorCode'] != 0:
-                Response['ErrorCode'] = Rsp['ErrorCode']
-                Response['ErrorMsg']  = Rsp['ErrorMsg']
+            return requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
         except Exception as errorMsg:
-            Response['ErrorCode'] = 50000
-            Response['ErrorMsg']  = f'Fail to request data via web, {str(errorMsg).lower().rstrip(".")}'
+            Response['ErrorCode'] = -1
+            Response['ErrorMsg']  = ''
 
         return Response
 
@@ -178,24 +184,35 @@ def Put(Cfg = None):
                 req_body_type = 'formData',
                 body_type     = 'json'
             )
-            Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-                'Namespace': Config['Space'],
-                'Key'      : Config['Key']
-            }), body = {'Value': Config['Value']})
             Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
         except Exception as errorMsg:
-            Response['ErrorCode'] = 50001
-            Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
+            Response['ErrorCode'] = -1
+            Response['ErrorMsg']  = ''
             return Response
 
-        try:
-            # 复制代码运行请自行打印 API 的返回值
-            # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
-            Client.call_api(Params, Request, Runtime)
-        except Exception as errorMsg:
-            Response['ErrorCode'] = 50002
-            Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
-            return Response
+        for KvPair in Config['KeyValue']:
+            Key = str(KvPair['Key'])
+
+            if len(Key) > 512:
+                Response['Data'][Key] = {'code': 400}
+                continue
+
+            if isinstance(KvPair['Value'], str):
+                Value = KvPair['Value']
+            elif isinstance(KvPair['Value'], dict) or isinstance(KvPair['Value'], list):
+                Value = json.dumps(KvPair['Value'])
+            else:
+                Value = str(KvPair['Value'])
+
+            try:
+                Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
+                    'Namespace': Config['Space'],
+                    'Key'      : Key
+                }), body = {'Value': Value})
+                Client.call_api(Params, Request, Runtime)
+                Response['Data'][Key] = {'code': 0}
+            except Exception as errorMsg:
+                Response['Data'][Key] = {'code': 500}
 
         return Response
 
@@ -209,8 +226,8 @@ def Delete(Cfg = None):
         from .Merge import MergeCfg
 
     Config = {
-        'Web'     : True,                # True: 从 Web Dcdn 请求数据, False: 从 API 请求数据
-        'Key'     : 'sample',            # 记录の键
+        'Web'     : True,
+        'Key'     : None,                # 记录の键, '' OR ['', '', ...]
         'Space'   : 'sample-storage',    # 记录の域
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
@@ -221,7 +238,8 @@ def Delete(Cfg = None):
 
     Response = {
         'ErrorCode': 0,
-        'ErrorMsg' : ''
+        'ErrorMsg' : '',
+        'Data'     : {}
     }
 
     if Config['Web']:
@@ -236,16 +254,12 @@ def Delete(Cfg = None):
             Dat = {
                 'action'   : 'delete',
                 'namespace': Config['Space'],
-                'key'      : Config['Key']
+                'key'      : Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]
             }
-            Rsp = requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
-
-            if Rsp['ErrorCode'] != 0:
-                Response['ErrorCode'] = Rsp['ErrorCode']
-                Response['ErrorMsg']  = Rsp['ErrorMsg']
+            return requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
         except Exception as errorMsg:
-            Response['ErrorCode'] = 50000
-            Response['ErrorMsg']  = f'Fail to request data via web, {str(errorMsg).lower().rstrip(".")}'
+            Response['ErrorCode'] = -1
+            Response['ErrorMsg']  = ''
 
         return Response
 
@@ -267,23 +281,30 @@ def Delete(Cfg = None):
                 req_body_type = 'json',
                 body_type     = 'json'
             )
-            Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-                'Namespace': Config['Space'],
-                'Key'      : Config['Key']
-            }))
             Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
         except Exception as errorMsg:
-            Response['ErrorCode'] = 50001
-            Response['ErrorMsg']  = f'Fail to init openapi model, {str(errorMsg).lower().rstrip(".")}'
+            Response['ErrorCode'] = -1
+            Response['ErrorMsg']  = ''
             return Response
 
-        try:
-            # 复制代码运行请自行打印 API 的返回值
-            # 返回值为 Map 类型，可从 Map 中获得三类数据：响应体 body、响应头 headers、HTTP 返回的状态码 statusCode。
-            Client.call_api(Params, Request, Runtime)
-        except Exception as errorMsg:
-            Response['ErrorCode'] = 50002
-            Response['ErrorMsg']  = f'Fail to request openapi model, {str(errorMsg.data.get("Message", errorMsg.message)).lower().rstrip(".")}'
-            return Response
+        for Key in Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]:
+            Key = str(Key)
+
+            if len(Key) > 512:
+                Response['Data'][Key] = {'code': 400}
+                continue
+
+            try:
+                Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
+                    'Namespace': Config['Space'],
+                    'Key'      : Key
+                }))
+                Client.call_api(Params, Request, Runtime)
+                Response['Data'][Key] = {'code': 0}
+            except Exception as errorMsg:
+                if errorMsg.data.get('Code') in ['InvalidAccount.NotFound', 'InvalidNameSpace.NotFound', 'InvalidKey.NotFound']:
+                    Response['Data'][Key] = {'code': 404}
+                else:
+                    Response['Data'][Key] = {'code': 500}
 
         return Response
