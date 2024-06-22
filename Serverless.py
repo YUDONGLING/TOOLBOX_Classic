@@ -3,6 +3,7 @@ class Wsgi(object):
     def __init__(self, environ, start_response):
         import urllib.parse
 
+        self.TempStore     = {} # 用于存储临时数据
         self.Response      = {}
         self.Environ       = environ
         self.StartResponse = start_response
