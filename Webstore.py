@@ -144,6 +144,11 @@ def Put(Cfg = None):
         'Data'     : {}
     }
 
+    # TTL ONLY available in API mode
+    for KvPair in Config['KeyValue']:
+        if 'Ttl' in KvPair:
+            Config['Web'] = False; break
+
     if Config['Web']:
         import requests
 
