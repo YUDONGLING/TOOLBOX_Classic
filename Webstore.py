@@ -157,7 +157,8 @@ def Put(Cfg = None):
                 'action'   : 'put',
                 'namespace': Config['Space'],
                 'key'      : [_['Key'] for _ in Config['KeyValue']],
-                'value'    : [_['Value'] for _ in Config['KeyValue']]
+                'value'    : [_['Value'] for _ in Config['KeyValue']],
+                'ttl'      : [_.get('Ttl', 0) for _ in Config['KeyValue']]
             }
             return requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
         except Exception as errorMsg:
@@ -206,8 +207,9 @@ def Put(Cfg = None):
 
             try:
                 Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-                    'Namespace': Config['Space'],
-                    'Key'      : Key
+                    'Namespace'    : Config['Space'],
+                    'Key'          : Key,
+                    'ExpirationTtl': KvPair.get('Ttl', 0)
                 }), body = {'Value': Value})
                 Client.call_api(Params, Request, Runtime)
                 Response['Data'][Key] = {'code': 0}
