@@ -154,7 +154,7 @@ class Wsgi(object):
         import urllib.parse
 
         Param = {}
-        for KV in [_.split('=', 1) for _ in urllib.parse.unquote(self.Environ.get('QUERY_STRING', '')).split('&')]:
+        for KV in [_.split('=', 1) for _ in urllib.parse.unquote(self.Environ.get('QUERY_STRING', '')).split('&') if _]:
             if len(KV) > 1:
                 try:    Param[urllib.parse.unquote(KV[0])] = json.loads(urllib.parse.unquote(KV[1]))
                 except: Param[urllib.parse.unquote(KV[0])] = urllib.parse.unquote(KV[1])
@@ -186,7 +186,7 @@ class Wsgi(object):
 
         def DecodeForm(_):
             Form = {}
-            for KV in [_.split('=', 1) for _ in _.split('&')]:
+            for KV in [_.split('=', 1) for _ in _.split('&') if _]:
                 if len(KV) > 1:
                     try:    Form[urllib.parse.unquote(KV[0])] = json.loads(urllib.parse.unquote(KV[1]))
                     except: Form[urllib.parse.unquote(KV[0])] = urllib.parse.unquote(KV[1])
