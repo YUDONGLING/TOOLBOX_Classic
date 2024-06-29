@@ -207,63 +207,19 @@ class Wsgi(object):
     def GetLocation(self):
         import requests
 
-        if self.Server['Region'] in ['cn-zhangjiakou', 'cn-shenzhen', 'cn-shanghai', 'cn-qingdao', 'cn-huhehaote', 'cn-hangzhou-finance', 'cn-hangzhou', 'cn-chengdu', 'cn-beijing']:
-            Url = 'https://searchplugin.csdn.net/api/v1/ip/get'
-            Pam = {
-                'ip': self.Request['Ip']
-            }
-            try:
-                return requests.get(Url, params = Pam, timeout = 5).json()['data']['address'].replace('   ', ' ').replace('  ', ' ').strip()
-            except Exception as errorMsg:
-                return '未知 未知'
-        else:
-            try:
-                Url = 'https://pro.ip-api.com/json/%s' % (self.Request['Ip'])
-                Hed = {
-                    'Accept'         : '*/*',
-                    'Accept-Language': 'zh-CN,zh;q=0.9',
-                    'Cache-Control'  : 'no-cache',
-                    'Connection'     : 'keep-alive',
-                    'DNT'            : '1',
-                    'Origin'         : 'https://members.ip-api.com',
-                    'Pragma'         : 'no-cache',
-                    'Referer'        : 'https://members.ip-api.com/',
-                    'User-Agent'     : self.Request['User-Agent']
-                }
+        ########### IPv4 ###########
+        if '.' in self.Request['Ip']:
+            def _IpApi():
+                Url = 'http://ip-api.com/json/%s' % (self.Request['Ip'])
                 Pam = {
                     'fields': 'country,regionName,city,isp,as',
-                    'lang'  : 'zh-CN',
-                    'key'   : 'ipapiq9SFY1Ic4'
+                    'lang'  : 'zh-CN'
                 }
-                Rsp = requests.get(Url, headers = Hed, params = Pam, timeout = 5).json()
-
-                Country = Rsp['country']
-                Region  = Rsp['regionName'].lstrip('省').lstrip('市').lstrip('自治区').lstrip('特别行政区') if Country == '中国' else Rsp['regionName']
-                City    = Rsp['city'].lstrip('市').lstrip('自治州').lstrip('地区').lstrip('盟').lstrip('县').lstrip('区').lstrip('旗') if Country == '中国' else Rsp['city']
-
-                if Country == '中国':
-                    Isp = Rsp['isp']; As = Rsp['isp'].upper() + Rsp['as'].upper()
-                    if   'TELECOM' in As or 'CHINANET'  in As: Isp = '电信'
-                    elif 'UNICOM'  in As or 'CHINA169'  in As: Isp = '联通'
-                    elif 'MOBILE'  in As or 'CMNET'     in As: Isp = '移动'
-                    elif 'TIETONG' in As or 'RAILWAT'   in As: Isp = '铁通'
-                    elif 'CERNET'  in As or 'EDUCATION' in As: Isp = '教育网'
-                else:
-                    Isp = Rsp['isp']
-
-                return ('%s %s %s %s' % (Country, Region, City, Isp)).replace('   ', ' ').replace('  ', ' ').strip()
-            except Exception as errorMsg:
                 try:
-                    Url = 'http://ip-api.com/json/' % (self.Request['Ip'])
-                    Pam = {
-                        'fields': 'country,regionName,city,isp,as',
-                        'lang'  : 'zh-CN'
-                    }
-                    Rsp = requests.get(Url, params = Pam, timeout = 5).json()
-
+                    Rsp = requests.get(Url, params = Pam, timeout = 7.5, verify = False).json()
                     Country = Rsp['country']
-                    Region  = Rsp['regionName'].lstrip('省').lstrip('市').lstrip('自治区').lstrip('特别行政区') if Country == '中国' else Rsp['regionName']
-                    City    = Rsp['city'].lstrip('市').lstrip('自治州').lstrip('地区').lstrip('盟').lstrip('县').lstrip('区').lstrip('旗') if Country == '中国' else Rsp['city']
+                    Region  = Rsp['regionName'].removesuffix('省').removesuffix('市').removesuffix('自治区').removesuffix('特别行政区') if Country == '中国' else Rsp['regionName']
+                    City    = Rsp['city'].removesuffix('市').removesuffix('自治州').removesuffix('地区').removesuffix('盟').removesuffix('县').removesuffix('区').removesuffix('旗') if Country == '中国' else Rsp['city']
 
                     if Country == '中国':
                         Isp = Rsp['isp']; As = Rsp['isp'].upper() + Rsp['as'].upper()
@@ -276,8 +232,20 @@ class Wsgi(object):
                         Isp = Rsp['isp']
 
                     return ('%s %s %s %s' % (Country, Region, City, Isp)).replace('   ', ' ').replace('  ', ' ').strip()
-                except Exception as errorMsg:
+                except:
                     return '未知 未知'
+
+            def _CsdnApi():
+                Url = 'https://searchplugin.csdn.net/api/v1/ip/get'
+                Pam = {
+                    'ip': self.Request['Ip']
+                }
+                try:
+                    return requests.get(Url, params = Pam, timeout = 7.5, verify = False).json()['data']['address'].replace('    ', ' ').replace('   ', ' ').replace('  ', ' ').strip()
+                except:
+                    return '未知 未知'
+
+            return _CsdnApi()
 
 
     def CallWebhook(self, AccessToken, ShowRequestDetail = False, ShowResponseDetail = False, IncludeOptions = False):
