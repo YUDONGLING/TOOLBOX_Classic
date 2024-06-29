@@ -16,6 +16,8 @@ def __AliyunEndPoint__(RegionId: str, ProductCode = 'Dcdn'):
 
 def Get(Cfg = None):
     import json
+    import time
+    import requests
 
     if __name__ == '__main__':
         from  Merge import MergeCfg
@@ -40,10 +42,8 @@ def Get(Cfg = None):
     }
 
     if Config['Web']:
-        import requests
-
         try:
-            Url = f'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
+            Url = 'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
             Hed = {
                 'Content-Type': 'application/json',
                 'Host'        : 'storage.edge-routine.yudongling.net'
@@ -56,10 +56,8 @@ def Get(Cfg = None):
             Rsp = requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
 
             for Key, Value in Rsp['Data'].items():
-                try:
-                    Rsp['Data'][Key]['value'] = json.loads(Value['value'])
-                except:
-                    pass
+                try:    Rsp['Data'][Key]['value'] = json.loads(Value['value'])
+                except: pass
 
             return Rsp
         except Exception as errorMsg:
@@ -106,12 +104,13 @@ def Get(Cfg = None):
                 }))
                 Result  = Client.call_api(Params, Request, Runtime)
 
-                try:
-                    Response['Data'][Key] = {'code': 0, 'value': json.loads(Result['body']['Value'])}
-                except:
-                    Response['Data'][Key] = {'code': 0, 'value': Result['body']['Value']}
+                Exp, Val = Result['body']['Value'].split('|', 1); Exp = int(Exp)
+                if Exp != -1 and Exp < time.time(): raise Exception('Expired')
+
+                try:    Response['Data'][Key] = {'code': 0, 'value': json.loads(Val)}
+                except: Response['Data'][Key] = {'code': 0, 'value': Val}
             except Exception as errorMsg:
-                if errorMsg.data.get('Code') in ['InvalidKey.NotFound']:
+                if str(errorMsg) in ['Expired'] or errorMsg.data.get('Code') in ['InvalidKey.NotFound']:
                     Response['Data'][Key] = {'code': 404, 'value': ''}
                 else:
                     Response['Data'][Key] = {'code': 500, 'value': ''}
@@ -121,6 +120,8 @@ def Get(Cfg = None):
 
 def Put(Cfg = None):
     import json
+    import time
+    import requests
 
     if __name__ == '__main__':
         from  Merge import MergeCfg
@@ -129,7 +130,7 @@ def Put(Cfg = None):
 
     Config = {
         'Web'     : True,
-        'KeyValue': [],                  # 记录の键值对
+        'Key'     : [],                  # 记录の键值对, Eg. { Key: 'Key', Value: 'Value', Ttl: 0, Expire: 1700000000 }
         'Space'   : 'sample-storage',    # 记录の域
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
@@ -144,16 +145,16 @@ def Put(Cfg = None):
         'Data'     : {}
     }
 
-    # TTL ONLY available in API mode
-    for KvPair in Config['KeyValue']:
-        if 'Ttl' in KvPair:
-            Config['Web'] = False; break
-
     if Config['Web']:
-        import requests
+        Body = []
+        for _ in Config['Key']:
+            Info = { 'key'  : _['Key'], 'value': _['Value'] }
+            if 'Ttl'    in _ and isinstance(_['Ttl']   , int): Info['ttl']    = _['Ttl']
+            if 'Expire' in _ and isinstance(_['Expire'], int): Info['expire'] = _['Expire']
+            Body.append(Info)
 
         try:
-            Url = f'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
+            Url = 'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
             Hed = {
                 'Content-Type': 'application/json',
                 'Host'        : 'storage.edge-routine.yudongling.net'
@@ -161,9 +162,7 @@ def Put(Cfg = None):
             Dat = {
                 'action'   : 'put',
                 'namespace': Config['Space'],
-                'key'      : [_['Key'] for _ in Config['KeyValue']],
-                'value'    : [_['Value'] for _ in Config['KeyValue']],
-                'ttl'      : [_.get('Ttl', 0) for _ in Config['KeyValue']]
+                'key'      : Body
             }
             return requests.post(Url, headers = Hed, data = json.dumps(Dat), timeout = 5).json()
         except Exception as errorMsg:
@@ -196,26 +195,31 @@ def Put(Cfg = None):
             Response['ErrorMsg']  = ''
             return Response
 
-        for KvPair in Config['KeyValue']:
-            Key = str(KvPair['Key'])
+        for Info in Config['Key']:
+            Key = str(Info['Key'])
 
             if len(Key) > 512:
                 Response['Data'][Key] = {'code': 400}
                 continue
 
-            if isinstance(KvPair['Value'], str):
-                Value = KvPair['Value']
-            elif isinstance(KvPair['Value'], dict) or isinstance(KvPair['Value'], list):
-                Value = json.dumps(KvPair['Value'])
+            Expire = -1
+            if 'Expire' in Info and isinstance(Info['Expire'], int) and Info['Expire'] > 0:
+                Expire = Info['Expire']
+            elif 'Ttl'  in Info and isinstance(Info['Ttl']   , int) and Info['Ttl']    > 0:
+                Expire = int(time.time() + Info['Ttl'])
+
+            if isinstance(Info['Value'], str):
+                Value = Info['Value']
+            elif isinstance(Info['Value'], dict) or isinstance(Info['Value'], list):
+                Value = json.dumps(Info['Value'])
             else:
-                Value = str(KvPair['Value'])
+                Value = str(Info['Value'])
 
             try:
                 Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-                    'Namespace'    : Config['Space'],
-                    'Key'          : Key,
-                    'ExpirationTtl': KvPair.get('Ttl', 0)
-                }), body = {'Value': Value})
+                    'Namespace': Config['Space'],
+                    'Key'      : Key
+                }), body = {'Value': f'{Expire}|{Value}'})
                 Client.call_api(Params, Request, Runtime)
                 Response['Data'][Key] = {'code': 0}
             except Exception as errorMsg:
@@ -226,6 +230,7 @@ def Put(Cfg = None):
 
 def Delete(Cfg = None):
     import json
+    import requests
 
     if __name__ == '__main__':
         from  Merge import MergeCfg
@@ -250,10 +255,8 @@ def Delete(Cfg = None):
     }
 
     if Config['Web']:
-        import requests
-
         try:
-            Url = f'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
+            Url = 'http://storage.edge-routine.yudongling.net.w.cdngslb.com/'
             Hed = {
                 'Content-Type': 'application/json',
                 'Host'        : 'storage.edge-routine.yudongling.net'
