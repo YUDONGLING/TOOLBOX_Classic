@@ -67,55 +67,67 @@ def Get(Cfg = None):
         return Response
 
     if not Config['Web']:
+        import asyncio
+
         from alibabacloud_tea_util import models as UtilModels
         from alibabacloud_tea_openapi import models as OpenApiModels
         from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
 
-        try:
-            Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
-            Params  = OpenApiModels.Params(
-                action        = 'GetDcdnKv',
-                version       = '2018-01-15',
-                protocol      = 'HTTPS',
-                method        = 'GET',
-                auth_type     = 'AK',
-                style         = 'RPC',
-                pathname      = '/',
-                req_body_type = 'json',
-                body_type     = 'json'
-            )
-            Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
-        except Exception as errorMsg:
-            Response['ErrorCode'] = -1
-            Response['ErrorMsg']  = ''
-            return Response
+        # 限制并发请求数
+        MaxReq = 16; Semaphore = asyncio.Semaphore(MaxReq)
 
-        for Key in Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]:
+        async def __AsyncReq__(Key, Client, Params, Runtime):
             Key = str(Key)
 
             if len(Key) > 512:
-                Response['Data'][Key] = {'code': 400, 'value': ''}
-                continue
+                return Key, {'code': 400, 'value': ''}
 
             try:
-                Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-                    'Namespace': Config['Space'],
-                    'Key'      : Key
-                }))
-                Result  = Client.call_api(Params, Request, Runtime)
+                async with Semaphore:
+                    Request = OpenApiModels.OpenApiRequest(query=OpenApiUtilClient.query({
+                        'Namespace': Config['Space'],
+                        'Key'      : Key
+                    }))
+                    Result = await Client.call_api_async(Params, Request, Runtime)
 
                 Exp, Val = Result['body']['Value'].split('|', 1); Exp = int(Exp)
-                if Exp != -1 and Exp < time.time(): raise Exception('Expired')
+                if Exp != -1 and Exp < time.time(): return Key, {'code': 404, 'value': ''}
 
-                try:    Response['Data'][Key] = {'code': 0, 'value': json.loads(Val)}
-                except: Response['Data'][Key] = {'code': 0, 'value': Val}
+                try:    return Key, {'code': 0, 'value': json.loads(Val)}
+                except: return Key, {'code': 0, 'value': Val}
             except Exception as errorMsg:
-                if str(errorMsg) in ['Expired'] or errorMsg.data.get('Code') in ['InvalidKey.NotFound']:
-                    Response['Data'][Key] = {'code': 404, 'value': ''}
+                if errorMsg.data.get('Code') in ['InvalidKey.NotFound']:
+                    return Key, {'code': 404, 'value': ''}
                 else:
-                    Response['Data'][Key] = {'code': 500, 'value': ''}
+                    return Key, {'code': 500, 'value': ''}
 
-        return Response
+        async def __AsyncMain__():
+            try:
+                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+                Params  = OpenApiModels.Params(
+                    action        = 'GetDcdnKv',
+                    version       = '2018-01-15',
+                    protocol      = 'HTTP',
+                    method        = 'GET',
+                    auth_type     = 'AK',
+                    style         = 'RPC',
+                    pathname      = '/',
+                    req_body_type = 'json',
+                    body_type     = 'json'
+                )
+                Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
+            except Exception as errorMsg:
+                Response['ErrorCode'] = -1
+                Response['ErrorMsg']  = ''
+                return Response
+
+            Key    = Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]
+            Result = await asyncio.gather(*[__AsyncReq__(_Key, Client, Params, Runtime) for _Key in Key])
+
+            for Key, Data in Result: Response['Data'][Key] = Data
+            return Response
+
+        return asyncio.run(__AsyncMain__())
 
 
 def Put(Cfg = None):
@@ -172,60 +184,80 @@ def Put(Cfg = None):
         return Response
 
     if not Config['Web']:
+        import asyncio
+
         from alibabacloud_tea_util import models as UtilModels
         from alibabacloud_tea_openapi import models as OpenApiModels
         from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
 
-        try:
-            Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
-            Params  = OpenApiModels.Params(
-                action        = 'PutDcdnKv',
-                version       = '2018-01-15',
-                protocol      = 'HTTPS',
-                method        = 'POST',
-                auth_type     = 'AK',
-                style         = 'RPC',
-                pathname      = '/',
-                req_body_type = 'formData',
-                body_type     = 'json'
-            )
-            Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
-        except Exception as errorMsg:
-            Response['ErrorCode'] = -1
-            Response['ErrorMsg']  = ''
-            return Response
+        # 限制并发请求数
+        MaxReq = 16; Semaphore = asyncio.Semaphore(MaxReq)
 
-        for Info in Config['Key']:
-            Key = str(Info['Key'])
+        async def __AsyncReq__(KeyVal, Client, Params, Runtime):
+            Key = str(KeyVal['Key'])
 
             if len(Key) > 512:
-                Response['Data'][Key] = {'code': 400}
-                continue
+                return Key, {'code': 400 }
 
             Expire = -1
-            if 'Expire' in Info and isinstance(Info['Expire'], int) and Info['Expire'] > 0:
-                Expire = Info['Expire']
-            elif 'Ttl'  in Info and isinstance(Info['Ttl']   , int) and Info['Ttl']    > 0:
-                Expire = int(time.time() + Info['Ttl'])
+            if 'Expire' in KeyVal and isinstance(KeyVal['Expire'], int) and KeyVal['Expire'] > 0:
+                Expire = KeyVal['Expire']
+            elif 'Ttl'  in KeyVal and isinstance(KeyVal['Ttl']   , int) and KeyVal['Ttl']    > 0:
+                Expire = int(time.time() + KeyVal['Ttl'])
 
-            if isinstance(Info['Value'], str):
-                Value = Info['Value']
-            elif isinstance(Info['Value'], dict) or isinstance(Info['Value'], list):
-                Value = json.dumps(Info['Value'])
+            if isinstance(KeyVal['Value'], str):
+                Value = KeyVal['Value']
+            elif isinstance(KeyVal['Value'], dict) or isinstance(KeyVal['Value'], list):
+                Value = json.dumps(KeyVal['Value'])
             else:
-                Value = str(Info['Value'])
+                Value = str(KeyVal['Value'])
 
             try:
-                Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-                    'Namespace': Config['Space'],
-                    'Key'      : Key
-                }), body = {'Value': f'{Expire}|{Value}'})
-                Client.call_api(Params, Request, Runtime)
-                Response['Data'][Key] = {'code': 0}
-            except Exception as errorMsg:
-                Response['Data'][Key] = {'code': 500}
+                async with Semaphore:
+                    if Expire == -1:
+                        Request = OpenApiModels.OpenApiRequest(query=OpenApiUtilClient.query({
+                            'Namespace': Config['Space'],
+                            'Key'      : Key
+                        }), body = {'Value': f'{Expire}|{Value}'})
+                    else:
+                        Request = OpenApiModels.OpenApiRequest(query=OpenApiUtilClient.query({
+                            'Namespace' : Config['Space'],
+                            'Key'       : Key,
+                            'Expiration': Expire + 30
+                        }), body = {'Value': f'{Expire}|{Value}'})
+                    await Client.call_api_async(Params, Request, Runtime)
 
-        return Response
+                return Key, {'code': 0 }
+            except Exception as errorMsg:
+                return Key, {'code': 500 }
+
+        async def __AsyncMain__():
+            try:
+                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+                Params  = OpenApiModels.Params(
+                    action        = 'PutDcdnKv',
+                    version       = '2018-01-15',
+                    protocol      = 'HTTP',
+                    method        = 'POST',
+                    auth_type     = 'AK',
+                    style         = 'RPC',
+                    pathname      = '/',
+                    req_body_type = 'formData',
+                    body_type     = 'json'
+                )
+                Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
+            except Exception as errorMsg:
+                Response['ErrorCode'] = -1
+                Response['ErrorMsg']  = ''
+                return Response
+
+            KeyVal = Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]
+            Result = await asyncio.gather(*[__AsyncReq__(_KeyVal, Client, Params, Runtime) for _KeyVal in KeyVal])
+
+            for Key, Data in Result: Response['Data'][Key] = Data
+            return Response
+
+        return asyncio.run(__AsyncMain__())
 
 
 def Delete(Cfg = None):
@@ -274,47 +306,60 @@ def Delete(Cfg = None):
         return Response
 
     if not Config['Web']:
+        import asyncio
+
         from alibabacloud_tea_util import models as UtilModels
         from alibabacloud_tea_openapi import models as OpenApiModels
         from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
 
-        try:
-            Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
-            Params  = OpenApiModels.Params(
-                action        = 'DeleteDcdnKv',
-                version       = '2018-01-15',
-                protocol      = 'HTTPS',
-                method        = 'POST',
-                auth_type     = 'AK',
-                style         = 'RPC',
-                pathname      = '/',
-                req_body_type = 'json',
-                body_type     = 'json'
-            )
-            Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
-        except Exception as errorMsg:
-            Response['ErrorCode'] = -1
-            Response['ErrorMsg']  = ''
-            return Response
+        # 限制并发请求数
+        MaxReq = 16; Semaphore = asyncio.Semaphore(MaxReq)
 
-        for Key in Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]:
+        async def __AsyncReq__(Key, Client, Params, Runtime):
             Key = str(Key)
 
             if len(Key) > 512:
-                Response['Data'][Key] = {'code': 400}
-                continue
+                return Key, {'code': 400 }
 
             try:
-                Request = OpenApiModels.OpenApiRequest(query = OpenApiUtilClient.query({
-                    'Namespace': Config['Space'],
-                    'Key'      : Key
-                }))
-                Client.call_api(Params, Request, Runtime)
-                Response['Data'][Key] = {'code': 0}
+                async with Semaphore:
+                    Request = OpenApiModels.OpenApiRequest(query=OpenApiUtilClient.query({
+                        'Namespace': Config['Space'],
+                        'Key'      : Key
+                    }))
+                    await Client.call_api_async(Params, Request, Runtime)
+
+                return Key, {'code': 0 }
             except Exception as errorMsg:
                 if errorMsg.data.get('Code') in ['InvalidAccount.NotFound', 'InvalidNameSpace.NotFound', 'InvalidKey.NotFound']:
-                    Response['Data'][Key] = {'code': 404}
+                    return Key, {'code': 404 }
                 else:
-                    Response['Data'][Key] = {'code': 500}
+                    return Key, {'code': 500 }
 
-        return Response
+        async def __AsyncMain__():
+            try:
+                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+                Params  = OpenApiModels.Params(
+                    action        = 'DeleteDcdnKv',
+                    version       = '2018-01-15',
+                    protocol      = 'HTTP',
+                    method        = 'POST',
+                    auth_type     = 'AK',
+                    style         = 'RPC',
+                    pathname      = '/',
+                    req_body_type = 'json',
+                    body_type     = 'json'
+                )
+                Runtime = UtilModels.RuntimeOptions(autoretry = True, max_attempts = 3, read_timeout = 10000, connect_timeout = 10000)
+            except Exception as errorMsg:
+                Response['ErrorCode'] = -1
+                Response['ErrorMsg']  = ''
+                return Response
+
+            Key    = Config['Key'] if isinstance(Config['Key'], list) else [Config['Key']]
+            Result = await asyncio.gather(*[__AsyncReq__(_Key, Client, Params, Runtime) for _Key in Key])
+
+            for Key, Data in Result: Response['Data'][Key] = Data
+            return Response
+
+        return asyncio.run(__AsyncMain__())
