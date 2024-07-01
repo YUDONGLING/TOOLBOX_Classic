@@ -270,7 +270,7 @@ class Wsgi(object):
                     Location = requests.get(Url, headers = Hed, params = Pam, timeout = 7.5).json()['data']['location']
                     if '中国' in Location:
                         Location = Location.replace('省\t', ' ').replace('市\t', ' ').replace('自治区\t', ' ').replace('特别行政区\t', ' ').replace('自治州\t', ' ').replace('地区\t', ' ').replace('盟\t', ' ').replace('县\t', ' ').replace('区\t', ' ').replace('旗\t', ' ')
-                        Location = Location.replace('中国电信', '电信').replace('中国联通', '联通').replace('中国移动', '移动').replace('中国铁通', '铁通').replace('中国教育网', '教育网').replace('中国教育和科研计算机网 (CERNET)', '教育网').removesuffix('无线基站网络').removesuffix('有线宽带网络').removesuffix('政企专线')
+                        Location = Location.replace('中国电信', '电信').replace('中国联通', '联通').replace('中国移动', '移动').replace('中国铁通', '铁通').replace('中国教育网', '教育网').replace('中国教育和科研计算机网 (CERNET)', '教育网')
                         Location = Location.replace('\t', ' ').replace('    ', ' ').replace('   ', ' ').replace('  ', ' ').strip()
                         return Location
                     else:
