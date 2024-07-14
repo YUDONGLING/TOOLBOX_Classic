@@ -160,9 +160,18 @@ def Put(Cfg = None):
     if Config['Web']:
         Body = []
         for _ in Config['Key']:
-            Info = { 'key'  : _['Key'], 'value': _['Value'] }
+            Info = { 'key'  : _['Key'] }
+
+            if isinstance(_['Value'], str):
+                Info['value'] = _['Value']
+            elif isinstance(_['Value'], dict) or isinstance(_['Value'], list):
+                Info['value'] = json.dumps(_['Value'], ensure_ascii = False)
+            else:
+                Info['value'] = str(_['Value'])
+
             if 'Ttl'    in _ and isinstance(_['Ttl']   , int): Info['ttl']    = _['Ttl']
             if 'Expire' in _ and isinstance(_['Expire'], int): Info['expire'] = _['Expire']
+
             Body.append(Info)
 
         try:
@@ -208,7 +217,7 @@ def Put(Cfg = None):
             if isinstance(KeyVal['Value'], str):
                 Value = KeyVal['Value']
             elif isinstance(KeyVal['Value'], dict) or isinstance(KeyVal['Value'], list):
-                Value = json.dumps(KeyVal['Value'])
+                Value = json.dumps(KeyVal['Value'], ensure_ascii = False)
             else:
                 Value = str(KeyVal['Value'])
 
