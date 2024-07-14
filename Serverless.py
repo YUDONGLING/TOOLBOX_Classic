@@ -38,6 +38,7 @@ class Wsgi(object):
             'Method': self.Environ.get('REQUEST_METHOD', ''),
             'Host'  : self.Environ.get('HTTP_HOST', ''),
 
+            'Cookie': self.GetCookie(),
             'Path'  : self.GetPath(),
             'Param' : self.GetPam(),
             'Data'  : self.GetData(),
@@ -204,6 +205,20 @@ class Wsgi(object):
             else: return DecodeForm(Data)
 
 
+    def GetCookie(self):
+        import json
+        import urllib.parse
+
+        Cookie = {}
+        for KV in [_.split('=', 1) for _ in urllib.parse.unquote(self.Environ.get('HTTP_COOKIE', '')).split('; ') if _]:
+            if len(KV) > 1:
+                try:    Cookie[urllib.parse.unquote(KV[0])] = json.loads(urllib.parse.unquote(KV[1]))
+                except: Cookie[urllib.parse.unquote(KV[0])] = urllib.parse.unquote(KV[1])
+            else:
+                Cookie[urllib.parse.unquote(KV[0])] = ''
+        return Cookie
+
+
     def GetLocation(self):
         import requests
 
@@ -270,11 +285,12 @@ class Wsgi(object):
                     Location = requests.get(Url, headers = Hed, params = Pam, timeout = 7.5).json()['data']['location']
                     if '中国' in Location:
                         Location = Location.replace('省\t', ' ').replace('市\t', ' ').replace('自治区\t', ' ').replace('特别行政区\t', ' ').replace('自治州\t', ' ').replace('地区\t', ' ').replace('盟\t', ' ').replace('县\t', ' ').replace('区\t', ' ').replace('旗\t', ' ')
+                        Location = Location.replace('省 ', ' ').replace('市 ', ' ').replace('自治区 ', ' ').replace('特别行政区 ', ' ').replace('自治州 ', ' ').replace('地区 ', ' ').replace('盟 ', ' ').replace('县 ', ' ').replace('区 ', ' ').replace('旗 ', ' ')
                         Location = Location.replace('中国电信', '电信').replace('中国联通', '联通').replace('中国移动', '移动').replace('中国铁通', '铁通').replace('中国教育网', '教育网').replace('中国教育和科研计算机网 (CERNET)', '教育网')
-                        Location = Location.replace('\t', ' ').replace('    ', ' ').replace('   ', ' ').replace('  ', ' ').strip()
-                        return Location
-                    else:
-                        return Location
+
+                    Location = Location.removesuffix('移动网络').removesuffix('无线基站网络').removesuffix('无线基站网络(物联网卡)').removesuffix('无线基站网络 (物联网卡)').removesuffix('公众宽带').removesuffix('政企专线')
+                    Location = Location.replace('\t', ' ').replace('    ', ' ').replace('   ', ' ').replace('  ', ' ').strip()
+                    return Location
                 except:
                     return '未知 未知'
 
