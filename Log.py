@@ -33,7 +33,8 @@ def AppendLog(Cfg = None):
 
     # MAKE FOLDER
     try:
-        Folder = Config['Folder'] if Config['Folder'] != '' else '.'
+        Folder = Config['FolderPerfix'] + Config['Folder'] + Config['FolderSuffix']
+        Folder = Folder if Folder != '' else '.'
         os.makedirs(Folder, exist_ok = True)
     except Exception as errorMsg:
         Response['ErrorCode'] = 50001
@@ -42,7 +43,7 @@ def AppendLog(Cfg = None):
 
     # APPEND LOG
     try:
-        File = (Config['FilePerfix'] + '_' + Date_ISO + '_' + Config['FileSuffix']).strip('_') + '.txt'
+        File = Config['FilePerfix'] + (Config['File'] if Config['File'] else Date_ISO) + Config['FileSuffix'] + '.txt'
         Path = os.path.join(Folder, File)
 
         with open(Path, 'a', encoding = 'utf-8') as _: _.write(f'@{Date_USA} {Hour} | {Config["Data"]}\n')
