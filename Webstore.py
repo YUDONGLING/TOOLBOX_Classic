@@ -1,28 +1,14 @@
-def __AliyunClient__(AK: str, SK: str, EndPoint: str, STSToken: str = None):
-    from alibabacloud_tea_openapi import models as OpenApiModels
-    from alibabacloud_tea_openapi.client import Client as OpenApiClient
-    if STSToken:
-        return OpenApiClient(OpenApiModels.Config(access_key_id = AK, access_key_secret = SK, endpoint = EndPoint, security_token = STSToken))
-    else:
-        return OpenApiClient(OpenApiModels.Config(access_key_id = AK, access_key_secret = SK, endpoint = EndPoint))
-
-
-def __AliyunEndPoint__(RegionId: str, ProductCode = 'Dcdn'):
-    if RegionId in []:
-        return f'dcdn.{RegionId}.aliyuncs.com'
-    else:
-        return f'dcdn.aliyuncs.com'
-
-
 def Get(Cfg = None):
     import json
     import time
     import requests
 
     if __name__ == '__main__':
-        from  Merge import MergeCfg
+        from   Merge import MergeCfg
+        from  Aliyun import __AliyunClient__, __AliyunEndPoint__
     else:
-        from .Merge import MergeCfg
+        from  .Merge import MergeCfg
+        from .Aliyun import __AliyunClient__, __AliyunEndPoint__
 
     Config = {
         'Web'     : True,
@@ -31,7 +17,7 @@ def Get(Cfg = None):
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
         'STSToken': '',                  # 临时性凭证 (可留空)
-        'RegionId': 'cn-hangzhou'        # 服务接入点 (可留空)
+        'Region'  : 'cn-hangzhou'        # 服务接入点 (可留空)
     }
     Config = MergeCfg(Config, Cfg)
 
@@ -103,7 +89,7 @@ def Get(Cfg = None):
 
         async def __AsyncMain__():
             try:
-                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['Region'], 'Dcdn'))
                 Params  = OpenApiModels.Params(
                     action        = 'GetDcdnKv',
                     version       = '2018-01-15',
@@ -136,9 +122,11 @@ def Put(Cfg = None):
     import requests
 
     if __name__ == '__main__':
-        from  Merge import MergeCfg
+        from   Merge import MergeCfg
+        from  Aliyun import __AliyunClient__, __AliyunEndPoint__
     else:
-        from .Merge import MergeCfg
+        from  .Merge import MergeCfg
+        from .Aliyun import __AliyunClient__, __AliyunEndPoint__
 
     Config = {
         'Web'     : True,
@@ -147,7 +135,7 @@ def Put(Cfg = None):
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
         'STSToken': '',                  # 临时性凭证 (可留空)
-        'RegionId': 'cn-hangzhou'        # 服务接入点 (可留空)
+        'Region'  : 'cn-hangzhou'        # 服务接入点 (可留空)
     }
     Config = MergeCfg(Config, Cfg)
 
@@ -242,7 +230,7 @@ def Put(Cfg = None):
 
         async def __AsyncMain__():
             try:
-                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['Region'], 'Dcdn'))
                 Params  = OpenApiModels.Params(
                     action        = 'PutDcdnKv',
                     version       = '2018-01-15',
@@ -274,9 +262,11 @@ def Delete(Cfg = None):
     import requests
 
     if __name__ == '__main__':
-        from  Merge import MergeCfg
+        from   Merge import MergeCfg
+        from  Aliyun import __AliyunClient__, __AliyunEndPoint__
     else:
-        from .Merge import MergeCfg
+        from  .Merge import MergeCfg
+        from .Aliyun import __AliyunClient__, __AliyunEndPoint__
 
     Config = {
         'Web'     : True,
@@ -285,7 +275,7 @@ def Delete(Cfg = None):
         'AK'      : 'AccessKey Id',
         'SK'      : 'AccessKey Secret',
         'STSToken': '',                  # 临时性凭证 (可留空)
-        'RegionId': 'cn-hangzhou'        # 服务接入点 (可留空)
+        'Region'  : 'cn-hangzhou'        # 服务接入点 (可留空)
     }
     Config = MergeCfg(Config, Cfg)
 
@@ -347,7 +337,7 @@ def Delete(Cfg = None):
 
         async def __AsyncMain__():
             try:
-                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['RegionId']))
+                Client  = __AliyunClient__(AK = Config['AK'], SK = Config['SK'], STSToken = Config['STSToken'], EndPoint = __AliyunEndPoint__(Config['Region'], 'Dcdn'))
                 Params  = OpenApiModels.Params(
                     action        = 'DeleteDcdnKv',
                     version       = '2018-01-15',
