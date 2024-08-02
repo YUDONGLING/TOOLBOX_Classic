@@ -1,13 +1,17 @@
 class Wsgi(object):
 
     def __init__(self, environ, start_response):
+        import time
         import urllib.parse
 
-        self.TempStore     = {} # 用于存储临时数据
-        self.Response      = {}
+        # Timer
+        self.StartProcess = int(time.time() * 1000)
+        self.EndProcess   = -1
+
         self.Environ       = environ
         self.StartResponse = start_response
 
+        # Security Token Service
         self.Sts = {
             'AK'    : self.Environ['ALIBABA_CLOUD_ACCESS_KEY_ID'],
             'SK'    : self.Environ['ALIBABA_CLOUD_ACCESS_KEY_SECRET'],
@@ -15,6 +19,7 @@ class Wsgi(object):
             'Region': self.Environ['FC_REGION'],
         }
 
+        # Fc Runtime Environment
         self.Server = {
             'Owner'    : self.Environ['FC_ACCOUNT_ID'],
             'Region'   : self.Environ['FC_REGION'],
@@ -24,7 +29,9 @@ class Wsgi(object):
             'Instance' : self.Environ['FC_INSTANCE_ID']
         }
 
-        self.Request = {}
+        # Request
+        self.Request     = {}
+        self.RequestSize = -1
 
         for Key, Value in self.Environ.items():
             if Key.startswith("HTTP_"):
@@ -48,83 +55,54 @@ class Wsgi(object):
             'Content-Type': self.Environ.get('CONTENT_TYPE', '').lower()
         })
 
+        # Response
+        self.Response      = ''
+        self.ResponseCode  = ''
+        self.ResponseSize  = -1
 
-    def __call__(self, Body, Code = None, Header = None):
+        # Variables & Config
+        self.Var = {}
+        self.Cfg = {
+            'Log.Enable'             : False,
+            'Log.Prefix'             : '',
+            'Log.Key'                : '',
+
+            'Payload.Enable'         : False,
+            'Payload.Prefix'         : '',
+            'Payload.Key'            : '',
+            'Payload.IncludeHeader'  : False,
+            'Payload.IncludeCookie'  : False,
+            'Payload.IncludeParam'   : False,
+            'Payload.IncludePayload' : False,
+            'Payload.IncludeResponse': False,
+
+            'Webhook.Enable'         : False,
+            'Webhook.RequestDetail'  : False,
+            'Webhook.ResponseDetail' : False,
+            'Webhook.IncludeHead'    : False,
+            'Webhook.IncludeOptions' : False
+        }
+
+
+    def __call__(self, Body, Code: str = '200', Header: dict = {}):
         import json
+        import time
 
-        self.Response = Body
+        self.Response     = Body if isinstance(Body, str) else json.dumps(Body, ensure_ascii = False)
+        self.ResponseCode = Code if '100' <= Code <= '599' else '200'
+        self.ResponseSize = len(self.Response)
 
-        try   : Code = str(Code)
-        except: Code = ''
+        try:
+            if isinstance(Header, dict) and not 'Content-Type' in Header.keys():
+                Header['Content-Type'] = 'application/json'
+            elif not isinstance(Header, dict):
+                raise Exception()
+        except:
+            Header = {'Content-Type': 'application/json'}
 
-        self.StartResponse(
-            {
-                '100': '100 Continue',
-                '101': '101 Switching Protocols',
-                '102': '102 Processing',
-                '103': '103 Early Hints',
-                '200': '200 OK',
-                '201': '201 Created',
-                '202': '202 Accepted',
-                '203': '203 Non-Authoritative Information',
-                '204': '204 No Content',
-                '205': '205 Reset Content',
-                '206': '206 Partial Content',
-                '207': '207 Multi-Status',
-                '208': '208 Already Reported',
-                '226': '226 IM Used',
-                '300': '300 Multiple Choices',
-                '301': '301 Moved Permanently',
-                '302': '302 Found',
-                '303': '303 See Other',
-                '304': '304 Not Modified',
-                '305': '305 Use Proxy',
-                '307': '307 Temporary Redirect',
-                '308': '308 Permanent Redirect',
-                '400': '400 Bad Request',
-                '401': '401 Unauthorized',
-                '402': '402 Payment Required',
-                '403': '403 Forbidden',
-                '404': '404 Not Found',
-                '405': '405 Method Not Allowed',
-                '406': '406 Not Acceptable',
-                '407': '407 Proxy Authentication Required',
-                '408': '408 Request Timeout',
-                '409': '409 Conflict',
-                '410': '410 Gone',
-                '411': '411 Length Required',
-                '412': '412 Precondition Failed',
-                '413': '413 Payload Too Large',
-                '414': '414 URI Too Long',
-                '415': '415 Unsupported Media Type',
-                '416': '416 Range Not Satisfiable',
-                '417': '417 Expectation Failed',
-                '418': "418 I'm a teapot",
-                '421': '421 Misdirected Request',
-                '422': '422 Unprocessable Entity',
-                '423': '423 Locked',
-                '424': '424 Failed Dependency',
-                '425': '425 Too Early',
-                '426': '426 Upgrade Required',
-                '428': '428 Precondition Required',
-                '429': '429 Too Many Requests',
-                '431': '431 Request Header Fields Too Large',
-                '451': '451 Unavailable For Legal Reasons',
-                '500': '500 Internal Server Error',
-                '501': '501 Not Implemented',
-                '502': '502 Bad Gateway',
-                '503': '503 Service Unavailable',
-                '504': '504 Gateway Timeout',
-                '505': '505 HTTP Version Not Supported',
-                '506': '506 Variant Also Negotiates',
-                '507': '507 Insufficient Storage',
-                '508': '508 Loop Detected',
-                '510': '510 Not Extended',
-                '511': '511 Network Authentication Required'
-            }.get(Code, '200 OK'),
-            [('Content-Type', 'application/json')] + (Header or [])
-        )
-        return [json.dumps(Body, ensure_ascii = False)]
+        self.StartResponse(self.ResponseCode, [(Key, Value) for Key, Value in Header.items()])
+        self.EndProcess = int(time.time() * 1000)
+        return [self.Response]
 
 
     def GetIp(self):
@@ -175,10 +153,10 @@ class Wsgi(object):
 
         ContentType = self.Environ.get('CONTENT_TYPE', '').lower()
 
-        try:    ContentLength = int(self.Environ.get('CONTENT_LENGTH', '0'))
-        except: ContentLength = 0
+        try:    self.RequestSize = int(self.Environ.get('CONTENT_LENGTH', '0'))
+        except: self.RequestSize = 0
 
-        try:    Data = urllib.parse.unquote(self.Environ.get('wsgi.input', '').read(ContentLength).decode('utf-8'))
+        try:    Data = urllib.parse.unquote(self.Environ.get('wsgi.input', '').read(self.RequestSize).decode('utf-8'))
         except: Data = ''
 
         def DecodeJson(_):
@@ -299,11 +277,114 @@ class Wsgi(object):
         return '未知 未知'
 
 
-    def CallWebhook(self, AccessToken, ShowRequestDetail = False, ShowResponseDetail = False, IncludeOptions = False):
-        if self.Request['Method'] == 'OPTIONS' and not IncludeOptions:
-            return None
+    def CallLog(self, Bucket, Region):
+        if not self.Cfg.get('Log.Enable', False): return None
 
-        self.Request['Location'] = self.GetLocation()
+        if __name__ == '__main__':
+            from  Oss import AppendObject
+        else:
+            from .Oss import AppendObject
+
+        import time
+        try:
+            Key  = '%s%s' % (self.Cfg.get('Log.Prefix', ''), self.Cfg.get('Log.Key', ''))
+            Data = '%s - %s [%s] "%s /%s$%s@%s%s%s HTTP/1.1" %s %s %s "%s" "%s"\n' % (
+                self.Request['Ip'],
+                self.Request['Id'],
+                time.strftime('%d/%b/%Y:%H:%M:%S %z', time.localtime()),
+                self.Request['Method'],
+                self.Server['Service'],
+                self.Server['Function'],
+                self.Server['Qualifier'],
+                self.Request['Path'],
+                '?%s' % ('&'.join(['%s=%s' % (Key, Value) for Key, Value in self.Request['Param'].items()])) if self.Request['Param'] else '',
+                self.ResponseCode,
+                self.ResponseSize,
+                self.EndProcess - self.StartProcess,
+                self.Request['Referer'],
+                self.Request['User-Agent']
+            )
+
+            AppendObject({
+                'Region'  : Region,
+                'Bucket'  : Bucket,
+                'Key'     : Key,
+                'Data'    : Data,
+                'AK'      : self.Sts['AK'],
+                'SK'      : self.Sts['SK'],
+                'STSToken': self.Sts['Token']
+            })
+        except:
+            pass
+
+        # Payload
+        if not self.Cfg.get('Payload.Enable', False): return None
+
+        if __name__ == '__main__':
+            from  Oss import PutObject
+        else:
+            from .Oss import PutObject
+
+        IncludeHeader   = self.Cfg.get('Payload.IncludeHeader', False)
+        IncludeCookie   = self.Cfg.get('Payload.IncludeCookie', False)
+        IncludeParam    = self.Cfg.get('Payload.IncludeParam', False)
+        IncludePayload  = self.Cfg.get('Payload.IncludePayload', False)
+        IncludeResponse = self.Cfg.get('Payload.IncludeResponse', False)
+        if not (IncludeHeader or IncludeCookie or IncludeParam or IncludePayload or IncludeResponse): return None
+
+        Key   = '%s%s' % (self.Cfg.get('Payload.Prefix', ''), self.Cfg.get('Payload.Key', '') or '%s.txt' % self.Request['Id'])
+        Data += '\n\n'
+
+        import json
+        if IncludeHeader:
+            Data += '[ Header ] '
+            Data += json.dumps({Key: Value for Key, Value in self.Request.items() if Key not in ['Ip', 'Method', 'Host', 'Cookie', 'Path', 'Param', 'Data']}, ensure_ascii = False)
+            Data += '\n'
+
+        if IncludeCookie:
+            Data += '[ Cookie ] '
+            Data += json.dumps({Key: Value for Key, Value in self.Request['Cookie'].items()}, ensure_ascii = False)
+            Data += '\n'
+
+        if IncludeParam:
+            Data += '[ Params ] '
+            Data += json.dumps({Key: Value for Key, Value in self.Request['Param'].items()}, ensure_ascii = False)
+            Data += '\n'
+
+        if IncludePayload:
+            Data += '[Payloads] '
+            Data += json.dumps({Key: Value for Key, Value in self.Request['Data'].items()}, ensure_ascii = False)
+            Data += '\n'
+
+        if IncludeResponse:
+            Data += '[Response] '
+            try:    Data += json.dumps({Key: Value for Key, Value in self.Response.items()}, ensure_ascii = False)
+            except: Data += self.Response
+            Data += '\n'
+
+        PutObject({
+            'Region'  : Region,
+            'Bucket'  : Bucket,
+            'Key'     : Key,
+            'Data'    : Data,
+            'AK'      : self.Sts['AK'],
+            'SK'      : self.Sts['SK'],
+            'STSToken': self.Sts['Token']
+        })
+        return None
+
+
+    def CallWebhook(self, AccessToken):
+        if not self.Cfg.get('Webhook.Enable', False): return None
+
+        ShowRequestDetail  = self.Cfg.get('Webhook.RequestDetail', False)
+        ShowResponseDetail = self.Cfg.get('Webhook.ResponseDetail', False)
+        IncludeHead        = self.Cfg.get('Webhook.IncludeHead', False)
+        IncludeOptions     = self.Cfg.get('Webhook.IncludeOptions', False)
+
+        if (self.Request['Method'] == 'HEAD' and not IncludeHead) or \
+              (self.Request['Method'] == 'OPTIONS' and not IncludeOptions):
+            return None
 
         if __name__ == '__main__':
             from  Webhook import DingTalk
@@ -317,18 +398,18 @@ class Wsgi(object):
                 f'请求接口: {self.Server["Function"]}/{self.Server["Qualifier"]}',
                 f'请求方法: {self.Request["Method"]}',
                 f'用户来源: {self.Request["Ip"]}',
-                f'用户地区: {self.Request["Location"]}',
+                f'用户地区: {self.GetLocation()}',
                 f'用户设备: {self.Request["User-Agent"]}'
             ]
         }]
 
         Markdown.append({
             'Title': '接口响应信息',
-            'Color': 'RED' if self.Response['ErrorCode'] else 'GREEN',
+            'Color': 'RED' if self.Response.get('ErrorCode', 9999) else 'GREEN',
             'Text' : [
                 f'集群编号: {self.Server["Service"]}_{self.Server["Instance"]}',
-                f'错误代码: {self.Response["ErrorCode"] or "None"}',
-                f'错误信息: {self.Response["ErrorMsg"] or "None"}',
+                f'错误代码: {self.Response.get("ErrorCode", 0) or "None"}',
+                f'错误信息: {self.Response.get("ErrorMsg", "") or "None"}',
             ]
         })
 
