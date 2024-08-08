@@ -391,6 +391,9 @@ class Wsgi(object):
         else:
             from .Webhook import DingTalk
 
+        try:    Response, self.Response = self.Response, json.loads(self.Response)
+        except: Response, self.Response = self.Response, {}
+
         Markdown = [{
             'Title': '用户请求信息',
             'Color': 'BLUE',
@@ -430,7 +433,7 @@ class Wsgi(object):
                 'Title': '详细响应日志',
                 'Color': 'BLUE',
                 'Text' : [
-                    f'响应负载: {json.dumps(self.Response["Data"], ensure_ascii = False).replace("{}", "None")}'
+                    f'响应负载: {Response}'
                 ]
             })
 
@@ -440,4 +443,5 @@ class Wsgi(object):
             'Token': AccessToken
         })
 
+        self.Response = Response
         return None
