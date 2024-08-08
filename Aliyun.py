@@ -316,10 +316,20 @@ def __AliyunOssBucket__(AK: str, SK: str, Region: str, Bucket: str, Endpoint: st
     '''
     The Endpoint Should Include BucketName if Needed
     '''
-    from oss2 import Auth, AuthV4, StsAuth
+    if STSToken:
+        from oss2 import StsAuth
+        Auth = StsAuth(AK, SK, STSToken, auth_version = 'v1' if Version == 1 else 'v4')
+    elif Version == 1:
+        from oss2 import Auth as BaseAuth
+        Auth = BaseAuth(AK, SK)
+    else:
+        try: from oss2 import AuthV4 as BaseAuth
+        except ImportError: from oss2 import Auth as BaseAuth
+        Auth = BaseAuth(AK, SK)
+
     from oss2 import Bucket as OssBucket
     return OssBucket(
-        auth            = StsAuth(AK, SK, STSToken, auth_version = 'v1' if Version == 1 else 'v4') if STSToken else Auth(AK, SK) if Version == 1 else AuthV4(AK, SK),
+        auth            = Auth,
         region          = Region,
         bucket_name     = Bucket,
         endpoint        = Endpoint or 'oss-%s.aliyuncs.com' % Region,
@@ -332,10 +342,20 @@ def __AliyunOssService__(AK: str, SK: str, Region: str, Endpoint: str = None, ST
     '''
     The Endpoint Should Use Aliyun Default Endpoint Only, No Custom CNAME Endpoint
     '''
-    from oss2 import Auth, AuthV4, StsAuth
+    if STSToken:
+        from oss2 import StsAuth
+        Auth = StsAuth(AK, SK, STSToken, auth_version = 'v1' if Version == 1 else 'v4')
+    elif Version == 1:
+        from oss2 import Auth as BaseAuth
+        Auth = BaseAuth(AK, SK)
+    else:
+        try: from oss2 import AuthV4 as BaseAuth
+        except ImportError: from oss2 import Auth as BaseAuth
+        Auth = BaseAuth(AK, SK)
+
     from oss2 import Service as OssService
     return OssService(
-        auth            = StsAuth(AK, SK, STSToken, auth_version = 'v1' if Version == 1 else 'v4') if STSToken else Auth(AK, SK) if Version == 1 else AuthV4(AK, SK),
+        auth            = Auth,
         region          = Region,
         endpoint        = Endpoint or 'oss-%s.aliyuncs.com' % Region,
         connect_timeout = Timeout
