@@ -156,31 +156,48 @@ class Wsgi(object):
         try:    self.RequestSize = int(self.Environ.get('CONTENT_LENGTH', '0'))
         except: self.RequestSize = 0
 
-        try:    Data = urllib.parse.unquote(self.Environ.get('wsgi.input', '').read(self.RequestSize).decode('utf-8'))
-        except: Data = ''
-
         def DecodeJson(_):
             try:    return json.loads(_)
             except: return {}
 
         def DecodeForm(_):
-            Form = {}
-            for KV in [_.split('=', 1) for _ in _.split('&') if _]:
-                if len(KV) > 1:
-                    try:    Form[urllib.parse.unquote(KV[0])] = json.loads(urllib.parse.unquote(KV[1]))
-                    except: Form[urllib.parse.unquote(KV[0])] = urllib.parse.unquote(KV[1])
-                else:
-                    Form[urllib.parse.unquote(KV[0])] = ''
-            return Form
+            try:
+                Form = {}
+                for KV in [_.split('=', 1) for _ in _.split('&') if _]:
+                    if len(KV) > 1:
+                        try:    Form[urllib.parse.unquote(KV[0])] = json.loads(urllib.parse.unquote(KV[1]))
+                        except: Form[urllib.parse.unquote(KV[0])] = urllib.parse.unquote(KV[1])
+                    else:
+                        Form[urllib.parse.unquote(KV[0])] = ''
+                return Form
+            except:
+                return {}
 
-        if 'application/json' in ContentType:
-            return DecodeJson(Data)
-        elif 'form' in ContentType:
-            return DecodeForm(Data)
+        def DecodeMultipart(_):
+            import cgi
+            try:
+                Form = {}
+                FieldStorage = cgi.FieldStorage(fp = _['wsgi.input'], environ = _, keep_blank_values = True)
+                for Field in FieldStorage.keys():
+                    if FieldStorage[Field].filename:
+                        Form[Field] = {'filename': FieldStorage[Field].filename, 'content': FieldStorage[Field].file.read()}
+                    else:
+                        Form[Field] = FieldStorage[Field].value
+                return Form
+            except:
+                return {}
+
+        if self.RequestSize <= 0:
+            return {}
+        elif 'multipart/form-data' in ContentType:
+            return DecodeMultipart(self.Environ)
         else:
-            _ = DecodeJson(Data)
-            if _: return _
-            else: return DecodeForm(Data)
+            Data = self.Environ['wsgi.input'].read(self.RequestSize).decode('utf-8')
+            if 'application/json' in ContentType:
+                return DecodeJson(Data)
+            if 'application/x-www-form-urlencoded' in ContentType:
+                return DecodeForm(Data)
+            return DecodeJson(Data) or DecodeForm(Data) or {}
 
 
     def GetCookie(self):
