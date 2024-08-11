@@ -135,21 +135,21 @@ def GetObject(Cfg = None):
         from .Aliyun import __AliyunOssBucket__, __AliyunEndPoint__
 
     Config = {
-        'Region'    : '',                 # 存储桶区域
-        'Bucket'    : '',                 # 存储桶名称
-        'Endpoint'  : None,               # 存储桶域名 或 __AliyunEndPoint__.ExtraField
-        'Key'       : '',
-        'Range'     : None,
-        'Header'    : {},
-        'Param'     : {},
-        'Url'       : '',                 # 签名链接 (优先)
-        'Folder'    : '',                 # 保存路径 (优先)
-        'File'      : '',                 # 保存文件 (优先)
+        'Region'     : '',                 # 存储桶区域
+        'Bucket'     : '',                 # 存储桶名称
+        'Endpoint'   : None,               # 存储桶域名 或 __AliyunEndPoint__.ExtraField
+        'Key'        : '',
+        'Range'      : None,
+        'Header'     : {},
+        'Param'      : {},
+        'Url'        : '',                 # 签名链接 (优先)
+        'Folder'     : '',                 # 保存路径 (优先)
+        'File'       : '',                 # 保存文件 (优先)
         'ProgressBar': False,
-        'Version'   : None,               # 签名版本 (可留空), V1 或 V4
-        'AK'        : 'AccessKey Id',
-        'SK'        : 'AccessKey Secret',
-        'STSToken'  : '',                 # 临时性凭证 (可留空)
+        'Version'    : None,               # 签名版本 (可留空), V1 或 V4
+        'AK'         : 'AccessKey Id',
+        'SK'         : 'AccessKey Secret',
+        'STSToken'   : '',                 # 临时性凭证 (可留空)
     }
     Config = MergeCfg(Config, Cfg)
 
@@ -167,8 +167,13 @@ def GetObject(Cfg = None):
         Response['ErrorMsg']  = 'Missing Bucket, Key or Url'
         return Response
 
-    if Config['Version'] != 'V1' and not Config['Region'] and not Config['Url']:
+    if not isinstance(Config['Key'], str) and not Config['Url']:
         Response['ErrorCode'] = 40002
+        Response['ErrorMsg']  = 'Require Key as String'
+        return Response
+
+    if Config['Version'] != 'V1' and not Config['Region'] and not Config['Url']:
+        Response['ErrorCode'] = 40003
         Response['ErrorMsg']  = 'Missing Region for Non-V1 Version Signature'
         return Response
     
@@ -279,20 +284,20 @@ def PutObject(Cfg = None):
         from .Aliyun import __AliyunOssBucket__, __AliyunEndPoint__
 
     Config = {
-        'Region'    : '',                 # 存储桶区域
-        'Bucket'    : '',                 # 存储桶名称
-        'Endpoint'  : None,               # 存储桶域名 或 __AliyunEndPoint__.ExtraField
-        'Key'       : '',
-        'Data'      : '',                 # 上传数据 (优先)
-        'Header'    : {},
-        'Url'       : '',                 # 签名链接 (优先)
-        'Folder'    : '',
-        'File'      : '',
+        'Region'     : '',                 # 存储桶区域
+        'Bucket'     : '',                 # 存储桶名称
+        'Endpoint'   : None,               # 存储桶域名 或 __AliyunEndPoint__.ExtraField
+        'Key'        : '',
+        'Data'       : '',                 # 上传数据 (优先)
+        'Header'     : {},
+        'Url'        : '',                 # 签名链接 (优先)
+        'Folder'     : '',
+        'File'       : '',
         'ProgressBar': False,
-        'Version'   : None,               # 签名版本 (可留空), V1 或 V4
-        'AK'        : 'AccessKey Id',
-        'SK'        : 'AccessKey Secret',
-        'STSToken'  : '',                 # 临时性凭证 (可留空)
+        'Version'    : None,               # 签名版本 (可留空), V1 或 V4
+        'AK'         : 'AccessKey Id',
+        'SK'         : 'AccessKey Secret',
+        'STSToken'   : '',                 # 临时性凭证 (可留空)
     }
     Config = MergeCfg(Config, Cfg)
 
@@ -310,8 +315,13 @@ def PutObject(Cfg = None):
         Response['ErrorMsg']  = 'Missing Bucket, Key or Url'
         return Response
 
-    if Config['Version'] != 'V1' and not Config['Region'] and not Config['Url']:
+    if not isinstance(Config['Key'], str) and not Config['Url']:
         Response['ErrorCode'] = 40002
+        Response['ErrorMsg']  = 'Require Key as String'
+        return Response
+
+    if Config['Version'] != 'V1' and not Config['Region'] and not Config['Url']:
+        Response['ErrorCode'] = 40003
         Response['ErrorMsg']  = 'Missing Region for Non-V1 Version Signature'
         return Response
     
@@ -320,7 +330,7 @@ def PutObject(Cfg = None):
 
     if not Config['Data']:
         if not os.path.exists(os.path.join(Config['Folder'] or '.', Config['File'])):
-            Response['ErrorCode'] = 40003
+            Response['ErrorCode'] = 40004
             Response['ErrorMsg']  = 'Missing File'
             return Response
 
@@ -405,19 +415,19 @@ def MultipartPutObject(Cfg = None):
         from .Aliyun import __AliyunOssBucket__, __AliyunEndPoint__
 
     Config = {
-        'Region'    : '',                 # 存储桶区域
-        'Bucket'    : '',                 # 存储桶名称
-        'Endpoint'  : None,               # 存储桶域名 或 __AliyunEndPoint__.ExtraField
-        'Key'       : '',
-        'Header'    : {},
-        'Folder'    : '',
-        'File'      : '',
-        'BlockSize' : 1024 * 1024 * 10,   # 分片大小, In Bytes
+        'Region'     : '',                 # 存储桶区域
+        'Bucket'     : '',                 # 存储桶名称
+        'Endpoint'   : None,               # 存储桶域名 或 __AliyunEndPoint__.ExtraField
+        'Key'        : '',
+        'Header'     : {},
+        'Folder'     : '',
+        'File'       : '',
+        'BlockSize'  : 1024 * 1024 * 10,   # 分片大小, In Bytes
         'ProgressBar': False,
-        'Version'   : None,               # 签名版本 (可留空), V1 或 V4
-        'AK'        : 'AccessKey Id',
-        'SK'        : 'AccessKey Secret',
-        'STSToken'  : '',                 # 临时性凭证 (可留空)
+        'Version'    : None,               # 签名版本 (可留空), V1 或 V4
+        'AK'         : 'AccessKey Id',
+        'SK'         : 'AccessKey Secret',
+        'STSToken'   : '',                 # 临时性凭证 (可留空)
     }
     # 从qiniu upload 复制一下进度条的代码
 
@@ -432,13 +442,18 @@ def MultipartPutObject(Cfg = None):
     # Config Check
     # ① 需要提供 Bucket, Key
     # ② 签名版本不为 V1 时需要提供 Region
-    if not all([Config['Bucket'], Config['Key']]) and not Config['Url']:
+    if not all([Config['Bucket'], Config['Key']]):
         Response['ErrorCode'] = 40001
-        Response['ErrorMsg']  = 'Missing Bucket, Key or Url'
+        Response['ErrorMsg']  = 'Missing Bucket or Key'
+        return Response
+
+    if not isinstance(Config['Key'], str):
+        Response['ErrorCode'] = 40002
+        Response['ErrorMsg']  = 'Require Key as String'
         return Response
 
     if Config['Version'] != 'V1' and not Config['Region'] and not Config['Url']:
-        Response['ErrorCode'] = 40002
+        Response['ErrorCode'] = 40003
         Response['ErrorMsg']  = 'Missing Region for Non-V1 Version Signature'
         return Response
 
@@ -517,20 +532,20 @@ def AppendObject(Cfg = None):
         from .Aliyun import __AliyunOssBucket__, __AliyunEndPoint__
 
     Config = {
-        'Region'    : '',                 # 存储桶区域
-        'Bucket'    : '',                 # 存储桶名称
-        'Endpoint'  : None,               # 存储桶域名 或 __AliyunEndPoint__.ExtraField
-        'Key'       : '',
-        'Data'      : '',                 # 上传数据 (优先)
-        'Header'    : {},
-        'Param'     : {},
-        'Folder'    : '',
-        'File'      : '',
+        'Region'     : '',                 # 存储桶区域
+        'Bucket'     : '',                 # 存储桶名称
+        'Endpoint'   : None,               # 存储桶域名 或 __AliyunEndPoint__.ExtraField
+        'Key'        : '',
+        'Data'       : '',                 # 上传数据 (优先)
+        'Header'     : {},
+        'Param'      : {},
+        'Folder'     : '',
+        'File'       : '',
         'ProgressBar': False,
-        'Version'   : None,               # 签名版本 (可留空), V1 或 V4
-        'AK'        : 'AccessKey Id',
-        'SK'        : 'AccessKey Secret',
-        'STSToken'  : '',                 # 临时性凭证 (可留空)
+        'Version'    : None,               # 签名版本 (可留空), V1 或 V4
+        'AK'         : 'AccessKey Id',
+        'SK'         : 'AccessKey Secret',
+        'STSToken'   : '',                 # 临时性凭证 (可留空)
     }
     Config = MergeCfg(Config, Cfg)
 
@@ -547,8 +562,13 @@ def AppendObject(Cfg = None):
         Response['ErrorMsg']  = 'Missing Bucket or Key'
         return Response
 
-    if Config['Version'] != 'V1' and not Config['Region']:
+    if not isinstance(Config['Key'], str):
         Response['ErrorCode'] = 40002
+        Response['ErrorMsg']  = 'Require Key as String'
+        return Response
+
+    if Config['Version'] != 'V1' and not Config['Region']:
+        Response['ErrorCode'] = 40003
         Response['ErrorMsg']  = 'Missing Region for Non-V1 Version Signature'
         return Response
 
@@ -650,7 +670,7 @@ def DeleteObject(Cfg = None):
     if not (isinstance(Config['Key'], str) or isinstance(Config['Key'], list)):
         Response['ErrorCode'] = 40002
         Response['ErrorMsg']  = 'Require Key as String or List'
-        return
+        return Response
 
     if Config['Version'] != 'V1' and not Config['Region']:
         Response['ErrorCode'] = 40002
