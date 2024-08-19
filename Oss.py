@@ -123,6 +123,8 @@ def SignUrl(Cfg = None):
 
 
 def GetObject(Cfg = None):
+    import os
+
     from oss2 import Bucket
     from oss2 import AnonymousAuth
     from oss2.exceptions import NotFound
@@ -182,7 +184,6 @@ def GetObject(Cfg = None):
 
     if Config['File']:
         try:
-            import os
             os.makedirs(Config['Folder'] or '.', exist_ok = True)
             Path = os.path.join(Config['Folder'] or '.', Config['File'])
         except Exception as ErrorMsg:
@@ -192,7 +193,7 @@ def GetObject(Cfg = None):
     else:
         Path = None
 
-    Pbar = ProgressBar(Name = Path or Config['Key'], Size = 0) if Config['ProgressBar'] else None
+    Pbar = ProgressBar(Name = os.path.basename(Path or Config['Key']), Size = 0) if Config['ProgressBar'] else None
 
     if Config['Url']:
         try:
@@ -334,7 +335,7 @@ def PutObject(Cfg = None):
             Response['ErrorMsg']  = 'Missing File'
             return Response
 
-    Pbar = ProgressBar(Name = os.path.join(Config['Folder'] or '.', Config['File']) or Config['Key'], Size = 0) if Config['ProgressBar'] else None
+    Pbar = ProgressBar(Name = os.path.basename(Config['File'] or Config['Key']), Size = 0) if Config['ProgressBar'] else None
 
     if Config['Url']:
         try:
@@ -403,9 +404,7 @@ def PutObject(Cfg = None):
 def MultipartPutObject(Cfg = None):
     import os
 
-    from oss2.models import PartInfo
-    from oss2 import SizedFileAdapter
-    from oss2 import determine_part_size as DeterminePartSize
+    from oss2 import resumable_upload
 
     if __name__ == '__main__':
         from  Merge import MergeCfg
@@ -423,13 +422,13 @@ def MultipartPutObject(Cfg = None):
         'Folder'     : '',
         'File'       : '',
         'BlockSize'  : 1024 * 1024 * 10,   # 分片大小, In Bytes
+        'ThreadNum'  : 5,                  # 线程数量, In Int
         'ProgressBar': False,
         'Version'    : None,               # 签名版本 (可留空), V1 或 V4
         'AK'         : 'AccessKey Id',
         'SK'         : 'AccessKey Secret',
         'STSToken'   : '',                 # 临时性凭证 (可留空)
     }
-    # 从qiniu upload 复制一下进度条的代码
 
     Config = MergeCfg(Config, Cfg)
 
@@ -464,11 +463,8 @@ def MultipartPutObject(Cfg = None):
         Response['ErrorCode'] = 40003
         Response['ErrorMsg']  = 'Missing File'
         return Response
-    else:
-        TotalSize = os.path.getsize(os.path.join(Config['Folder'] or '.', Config['File']))
-        BlockSize = DeterminePartSize(TotalSize, preferred_size = Config['BlockSize'] if Config['BlockSize'] > 0 else None)
 
-    Pbar = ProgressBar(Name = os.path.join(Config['Folder'] or '.', Config['File']) or Config['Key'], Size = TotalSize) if Config['ProgressBar'] else None
+    Pbar = ProgressBar(Name = os.path.basename(Config['File'] or Config['Key']), Size = 0) if Config['ProgressBar'] else None
 
     try:
         Bucket = __AliyunOssBucket__(
@@ -486,42 +482,25 @@ def MultipartPutObject(Cfg = None):
         return Response
 
     try:
-        Acl  = Config['Header'].pop('X-Oss-Object-Acl', None) # 移除 ACL, 在 CompleteMultipartUpload 时设置
-
-        UploadId    = Bucket.init_multipart_upload(Config['Key'], headers = Config['Header']).upload_id
-        UploadParts = []
-
-        with open(os.path.join(Config['Folder'] or '.', Config['File']), 'rb') as File:
-            PartNumber = 1
-            Offset     = 0
-            while Offset < TotalSize:
-                NumToUpload = min(BlockSize, TotalSize - Offset)
-                Result      = Bucket.upload_part(Config['Key'], UploadId, PartNumber, SizedFileAdapter(File, NumToUpload))
-                UploadParts.append(PartInfo(PartNumber, Result.etag))
-                Offset     += NumToUpload
-                PartNumber += 1
-                if Pbar: Pbar(Offset, TotalSize)
-    except Exception as ErrorMsg:
-        Response['ErrorCode'] = 50002
-        Response['ErrorMsg']  = f'Failed to init multipart upload, {str(ErrorMsg).lower()}'
-        return Response
-
-    try:
-        Response['Data'] = Bucket.complete_multipart_upload(
-            key       = Config['Key'],
-            upload_id = UploadId,
-            parts     = UploadParts,
-            headers   = {'X-Oss-Object-Acl': Acl} if Acl else None
+        Response['Data'] = resumable_upload(
+            Bucket, Config['Key'], os.path.join(Config['Folder'] or '.', Config['File']),
+            headers             = Config['Header'],
+            multipart_threshold = Config['BlockSize'],
+            part_size           = Config['BlockSize'],
+            num_threads         = Config['ThreadNum'],
+            progress_callback   = Pbar
         )
     except Exception as ErrorMsg:
-        Response['ErrorCode'] = 50003
-        Response['ErrorMsg']  = f'Failed to complete multipart upload, {str(ErrorMsg).lower()}'
+        Response['ErrorCode'] = 50004
+        Response['ErrorMsg']  = f'Failed to put object, {str(ErrorMsg).lower()}'
         return Response
 
     return Response
 
 
 def AppendObject(Cfg = None):
+    import os
+
     from oss2.exceptions import NotFound
 
     if __name__ == '__main__':
@@ -577,7 +556,6 @@ def AppendObject(Cfg = None):
 
     if not Config['Data']:
         try:
-            import os
             with open(os.path.join(Config['Folder'] if Config['Folder'] else '.', Config['File']), 'rb') as File:
                 Config['Data'] = File.read()
         except Exception as ErrorMsg:
@@ -585,7 +563,7 @@ def AppendObject(Cfg = None):
             Response['ErrorMsg']  = 'Missing Data'
             return Response
 
-    Pbar = ProgressBar(Name = Config['Key'], Size = 0) if Config['ProgressBar'] else None
+    Pbar = ProgressBar(Name = os.path.basename(Config['Key']), Size = 0) if Config['ProgressBar'] else None
 
     try:
         Bucket = __AliyunOssBucket__(
