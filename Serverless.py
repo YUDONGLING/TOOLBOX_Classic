@@ -34,7 +34,7 @@ class Wsgi(object):
         self.RequestSize = -1
 
         for Key, Value in self.Environ.items():
-            if Key.startswith("HTTP_"):
+            if Key.startswith('HTTP_') and Key not in ['HTTP_ALI_CDN_ADAPTIVE_PORTS', 'HTTP_ALI_CDN_REAL_IP', 'HTTP_ALI_SWIFT_LOG_HOST', 'HTTP_ALI_SWIFT_STAT_HOST', 'HTTP_EAGLEEYE_TRACEID', 'HTTP_VIA', 'HTTP_X_CDN_DAUTH_DATE', 'HTTP_X_CDN_ORIGIN_DAUTH', 'HTTP_X_CLIENT_SCHEME', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED_PROTO', 'HTTP_X_OSS_SECURITY_TOKEN', 'HTTP_X_FC_FUNCTION_HANDLER']:
                 self.Request[
                     urllib.parse.unquote(Key[5:].replace('_', '-').title())
                 ] = urllib.parse.unquote(Value)
@@ -294,7 +294,7 @@ class Wsgi(object):
         return '未知 未知'
 
 
-    def CallLog(self, Bucket, Region):
+    async def CallLog(self, Bucket, Region):
         if not self.Cfg.get('Log.Enable', False): return None
 
         if __name__ == '__main__':
@@ -303,36 +303,34 @@ class Wsgi(object):
             from .Oss import AppendObject
 
         import time
-        try:
-            Key  = '%s%s' % (self.Cfg.get('Log.Prefix', ''), self.Cfg.get('Log.Key', ''))
-            Data = '%s - %s [%s] "%s /%s$%s@%s%s%s HTTP/1.1" %s %s %s "%s" "%s"\n' % (
-                self.Request['Ip'],
-                self.Request['Id'],
-                time.strftime('%d/%b/%Y:%H:%M:%S %z', time.localtime()),
-                self.Request['Method'],
-                self.Server['Service'],
-                self.Server['Function'],
-                self.Server['Qualifier'],
-                self.Request['Path'],
-                '?%s' % ('&'.join(['%s=%s' % (Key, Value) for Key, Value in self.Request['Param'].items()])) if self.Request['Param'] else '',
-                self.ResponseCode,
-                self.ResponseSize,
-                self.EndProcess - self.StartProcess,
-                self.Request['Referer'],
-                self.Request['User-Agent']
-            )
+        import asyncio
+        Key  = '%s%s' % (self.Cfg.get('Log.Prefix', ''), self.Cfg.get('Log.Key', ''))
+        Data = '%s - %s [%s] "%s /%s$%s@%s%s%s HTTP/1.1" %s %s %s "%s" "%s"\n' % (
+            self.Request['Ip'],
+            self.Request['Id'],
+            time.strftime('%d/%b/%Y:%H:%M:%S %z', time.localtime()),
+            self.Request['Method'],
+            self.Server['Service'],
+            self.Server['Function'],
+            self.Server['Qualifier'],
+            self.Request['Path'],
+            '?%s' % ('&'.join(['%s=%s' % (Key, Value) for Key, Value in self.Request['Param'].items()])) if self.Request['Param'] else '',
+            self.ResponseCode,
+            self.ResponseSize,
+            self.EndProcess - self.StartProcess,
+            self.Request['Referer'],
+            self.Request['User-Agent']
+        )
 
-            AppendObject({
-                'Region'  : Region,
-                'Bucket'  : Bucket,
-                'Key'     : Key,
-                'Data'    : Data,
-                'AK'      : self.Sts['AK'],
-                'SK'      : self.Sts['SK'],
-                'STSToken': self.Sts['Token']
-            })
-        except:
-            pass
+        BasicLogging = asyncio.to_thread(AppendObject, {
+            'Region'  : Region,
+            'Bucket'  : Bucket,
+            'Key'     : Key,
+            'Data'    : Data,
+            'AK'      : self.Sts['AK'],
+            'SK'      : self.Sts['SK'],
+            'STSToken': self.Sts['Token']
+        })
 
         # Payload
         if not self.Cfg.get('Payload.Enable', False): return None
@@ -379,7 +377,7 @@ class Wsgi(object):
             except: Data += self.Response
             Data += '\n'
 
-        PutObject({
+        PayloadLogging = asyncio.to_thread(PutObject, {
             'Region'  : Region,
             'Bucket'  : Bucket,
             'Key'     : Key,
@@ -388,10 +386,12 @@ class Wsgi(object):
             'SK'      : self.Sts['SK'],
             'STSToken': self.Sts['Token']
         })
+
+        await asyncio.gather(BasicLogging, PayloadLogging)
         return None
 
 
-    def CallWebhook(self, AccessToken):
+    async def CallWebhook(self, AccessToken):
         if not self.Cfg.get('Webhook.Enable', False): return None
 
         ShowRequestDetail  = self.Cfg.get('Webhook.RequestDetail', False)
@@ -454,7 +454,8 @@ class Wsgi(object):
                 ]
             })
 
-        DingTalk({
+        import asyncio
+        await asyncio.to_thread(DingTalk, {
             'Org'  : '【Serverless】WSGI 请求监控',
             'Data' : Markdown,
             'Token': AccessToken
