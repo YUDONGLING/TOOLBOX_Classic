@@ -1,6 +1,46 @@
 import requests
 
 
+def QueryLocalDns(Host, Global = False, Region = '') -> str:
+    import os
+    import json
+
+    File = 'Global_IPs.json' if Global else 'CN_IPs.json'
+    if not os.path.exists(os.path.join(os.path.dirname(__file__), 'Extra', File)):
+        raise FileNotFoundError('The file %s does not exist.' % File)
+    else:
+        with open(os.path.join(os.path.dirname(__file__), 'Extra', File), 'r', encoding = 'utf-8') as f:
+            IPs = json.load(f)    
+
+    Zone = Region.upper().split('.')
+    while Zone:
+        try:
+            IPs = IPs[Zone.pop(0)]
+        except KeyError:
+            break
+
+    def MergeIPs(IP, IPs):
+        if isinstance(IPs, list):
+            IP.extend(IPs)
+        elif isinstance(IPs, dict):
+            for _, _IPs in IPs.items(): MergeIPs(IP, _IPs)
+        else: raise TypeError('The type of IPs is not list or dict.')
+
+    IP = []
+    MergeIPs(IP, IPs)
+
+    import random
+    IP = random.choice(IP)
+
+    Host = Host.removeprefix('//').removeprefix('http://').removeprefix('https://').removesuffix('/')
+
+    import requests
+    try:
+        return requests.get(f'https://dns.alidns.com/resolve?name={Host}&type=A&short=1&edns_client_subnet={IP}', timeout = 10).json().pop()
+    except Exception as e:
+        return Host
+
+
 class PostmanRequest(object):
     def __init__(self, postman_url: str | bytes,
                        postman_params          = None,
