@@ -4,6 +4,9 @@ class Wsgi(object):
         import time
         import urllib.parse
 
+        # Quiter Logger
+        self.FcQuiter = False
+
         # Timer
         self.StartProcess = int(time.time() * 1000)
         self.EndProcess   = -1
