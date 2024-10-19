@@ -466,3 +466,71 @@ class Wsgi(object):
 
         self.Response = Response
         return None
+
+
+class FlowControl(object):
+
+    def __init__(self, Ttl: int, Quota: int, Feature: str | list):
+        self._TTL     = Ttl
+        self._Quota   = Quota
+        self._Feature = Feature if isinstance(Feature, list) else [str(Feature)]
+
+        self._FeatureHash = self._hashFeature(Feature)
+        self._PlusPrefix  = f'FlowCtrl_P_{self._FeatureHash}_'
+        self._MinuPrefix  = f'FlowCtrl_M_{self._FeatureHash}_'
+
+
+    def __iadd__(self, Count: int):
+        for _ in range(Count):
+            self._makeFile( self._PlusPrefix )
+        return self
+
+
+    def __isub__(self, Count: int):
+        for _ in range( min(Count, self.count) ):
+            self._makeFile(self._MinuPrefix)
+        return self
+
+
+    def _hashFeature(self, Feature):
+        import time
+        import hashlib
+        return str(time.time() // self._TTL) + '_' + hashlib.md5('_'.join(sorted(Feature)).encode()).hexdigest()
+
+
+    def _makeFile(self, Prefix):
+        import uuid
+        try:
+            with open('%s%s' % (Prefix, uuid.uuid4()), 'w') as _: _.write('')
+        except Exception as e: pass
+
+
+    def _countFile(self, Prefix):
+        import os
+        return len([_ for _ in os.listdir() if _.startswith(Prefix)])
+
+
+    def reset(self):
+        self -= self.count
+
+
+    @property
+    def ok(self):
+        return self.count <= self._Quota
+
+
+    @property
+    def ttl(self):
+        return self._TTL
+
+
+    @property
+    def after(self):
+        import time
+        _ = time.time()
+        return int((_ // self._TTL + 1) * self._TTL - _)
+
+
+    @property
+    def count(self):
+        return self._countFile(self._PlusPrefix) - self._countFile(self._MinuPrefix)
