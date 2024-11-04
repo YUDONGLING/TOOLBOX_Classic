@@ -1,7 +1,7 @@
 import requests
 
 
-def QueryLocalDns(Host, Global = False, Region = '') -> str:
+def QueryLocalDns(Host, Global = False, Region = '' or []) -> str:
     import os
     import json
 
@@ -10,35 +10,36 @@ def QueryLocalDns(Host, Global = False, Region = '') -> str:
         raise FileNotFoundError('The file %s does not exist.' % File)
     else:
         with open(os.path.join(os.path.dirname(__file__), 'Extra', File), 'r', encoding = 'utf-8') as f:
-            IPs = json.load(f)    
+            IPs = json.load(f)
 
-    Zone = Region.upper().split('.')
-    while Zone:
-        try:
-            IPs = IPs[Zone.pop(0)]
-        except KeyError:
-            break
+    if isinstance(Region, str): Region = [Region]
 
-    def MergeIPs(IP, IPs):
-        if isinstance(IPs, list):
-            IP.extend(IPs)
-        elif isinstance(IPs, dict):
-            for _, _IPs in IPs.items(): MergeIPs(IP, _IPs)
-        else: raise TypeError('The type of IPs is not list or dict.')
+    def FetchIPs(Zone, IPs):
+        Zone = Zone.split('.'); Temp = IPs
+        while Zone:
+            try: Temp = Temp[Zone.pop(0)]
+            except KeyError: return []
+        return Temp
 
-    IP = []
-    MergeIPs(IP, IPs)
+    Pool = []
+    for Rule in [_ for _ in Region if     _.startswith('-')]: FetchIPs(Rule.removeprefix('-'), IPs).clear()
+    for Rule in [_ for _ in Region if not _.startswith('-')]: Pool.append(FetchIPs(Rule, IPs))
+
+    def MergeIPs(Tar, Src):
+        if isinstance(Src, list):
+            for _ in Src: MergeIPs(Tar, _)
+        elif isinstance(Src, dict):
+            for _, _IPs in Src.items(): MergeIPs(Tar, _IPs)
+        else: Tar.append(Src)
 
     import random
-    IP = random.choice(IP)
-
+    IP   = []; MergeIPs(IP, Pool)
+    IP   = random.choice(IP)
     Host = Host.removeprefix('//').removeprefix('http://').removeprefix('https://').removesuffix('/')
 
     import requests
-    try:
-        return requests.get(f'https://dns.alidns.com/resolve?name={Host}&type=A&short=1&edns_client_subnet={IP}', timeout = 10).json().pop()
-    except Exception as e:
-        return Host
+    try: return requests.get(f'https://dns.alidns.com/resolve?name={Host}&type=A&short=1&edns_client_subnet={Pool}', timeout = 10).json().pop()
+    except Exception as e: return Host
 
 
 class PostmanRequest(object):
