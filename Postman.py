@@ -24,6 +24,7 @@ def QueryLocalDns(Host, Global = False, Region = '' or []) -> str:
     Pool = []
     for Rule in [_ for _ in Region if     _.startswith('-')]: FetchIPs(Rule.removeprefix('-'), IPs).clear()
     for Rule in [_ for _ in Region if not _.startswith('-')]: Pool.append(FetchIPs(Rule, IPs))
+    if not Pool: Pool = IPs
 
     def MergeIPs(Tar, Src):
         if isinstance(Src, list):
@@ -38,8 +39,8 @@ def QueryLocalDns(Host, Global = False, Region = '' or []) -> str:
     Host = Host.removeprefix('//').removeprefix('http://').removeprefix('https://').removesuffix('/')
 
     import requests
-    try: return requests.get(f'https://dns.alidns.com/resolve?name={Host}&type=A&short=1&edns_client_subnet={Pool}', timeout = 10).json().pop()
-    except Exception as e: return Host
+    try: return requests.get(f'https://dns.alidns.com/resolve?name={Host}&type=A&short=1&edns_client_subnet={IP}', timeout = 10).json().pop()
+    except: return Host
 
 
 class PostmanRequest(object):
