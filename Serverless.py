@@ -428,11 +428,11 @@ class Wsgi(object):
 
         Markdown.append({
             'Title': '接口响应信息',
-            'Color': 'RED' if self.Response.get('ErrorCode', 9999) else 'GREEN',
+            'Color': 'RED' if self.Response.get('ErrorCode', self.Response.get('error_code', self.Response.get('Ec', self.Response.get('ec', 9999)))) else 'GREEN',
             'Text' : [
                 f'集群编号: {self.Server["Service"]}_{self.Server["Instance"]}',
-                f'错误代码: {self.Response.get("ErrorCode", 0) or "None"}',
-                f'错误信息: {self.Response.get("ErrorMsg", "") or "None"}',
+                f'错误代码: {self.Response.get("ErrorCode", self.Response.get("error_code", self.Response.get("Ec", self.Response.get("ec", 0)))) or "None"}',
+                f'错误信息: {self.Response.get("ErrorMsg", self.Response.get("error_msg", self.Response.get("Em", self.Response.get("em", "")))) or "None"}',
             ]
         })
 
