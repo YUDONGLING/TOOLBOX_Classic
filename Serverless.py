@@ -406,6 +406,8 @@ class Wsgi(object):
               (self.Request['Method'] == 'OPTIONS' and not IncludeOptions):
             return None
 
+        import json
+
         if __name__ == '__main__':
             from  Webhook import DingTalk
         else:
