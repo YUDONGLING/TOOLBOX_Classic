@@ -280,7 +280,7 @@ class Wsgi(object):
                     'ip'  : self.Request['Ip']
                 }
                 try:
-                    Location = requests.get(Url, headers = Hed, params = Pam, timeout = 7.5).json()['data']['location']
+                    Location = requests.get(Url, headers = Hed, params = Pam, timeout = 7.5, verify = False).json()['data']['location']
                     if '中国' in Location:
                         Location = Location.replace('省\t', ' ').replace('市\t', ' ').replace('自治区\t', ' ').replace('特别行政区\t', ' ').replace('自治州\t', ' ').replace('地区\t', ' ').replace('盟\t', ' ').replace('县\t', ' ').replace('区\t', ' ').replace('旗\t', ' ')
                         Location = Location.replace('省 ', ' ').replace('市 ', ' ').replace('自治区 ', ' ').replace('特别行政区 ', ' ').replace('自治州 ', ' ').replace('地区 ', ' ').replace('盟 ', ' ').replace('县 ', ' ').replace('区 ', ' ').replace('旗 ', ' ')
